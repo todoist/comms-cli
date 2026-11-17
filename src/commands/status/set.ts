@@ -18,13 +18,19 @@ type SetStatusOptions = MutationOptions & {
     pauseActivity?: boolean
 }
 
-function resolveMessage(message: string): string {
+function resolveMessage(message: string | undefined): string | undefined {
+    if (message === undefined) {
+        return undefined
+    }
     const trimmed = message.trim()
     const length = [...trimmed].length
     if (length < 1 || length > MAX_MESSAGE_LENGTH) {
         throw new CliError(
             'INVALID_VALUE',
             `The message must be 1 to ${MAX_MESSAGE_LENGTH} characters`,
+            length < 1
+                ? ['To set only an emoji, leave the message out: --emoji <emoji>']
+                : undefined,
         )
     }
     return trimmed
@@ -81,13 +87,22 @@ function resolveExpiry(options: SetStatusOptions): Date | undefined {
     return expiry
 }
 
-export async function setStatus(message: string, options: SetStatusOptions): Promise<void> {
+export async function setStatus(
+    message: string | undefined,
+    options: SetStatusOptions,
+): Promise<void> {
     const text = resolveMessage(message)
     const emoji = resolveEmoji(options.emoji)
+    if (text === undefined && emoji === undefined) {
+        throw new CliError('MISSING_CONTENT', 'A status needs a message, an emoji or both', [
+            'tdc status set "Deep work"',
+            'tdc status set --emoji 🎯',
+        ])
+    }
     const activeUntil = resolveExpiry(options)
 
     const args: SetStatusArgs = {
-        message: text,
+        message: text ?? null,
         emoji: emoji ?? null,
         activeUntil: activeUntil ?? null,
         effects: {
@@ -98,7 +113,7 @@ export async function setStatus(message: string, options: SetStatusOptions): Pro
 
     if (options.dryRun) {
         printDryRun('set status', {
-            Message: text,
+            Message: text ?? 'cleared',
             Emoji: emoji ?? 'cleared',
             Until: activeUntil ? formatDateTime(activeUntil) : 'cleared',
             'Pause notifications': options.pauseNotifications ? 'yes' : 'cleared',

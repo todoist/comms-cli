@@ -321,6 +321,56 @@ describe('tdc status', () => {
                 status: { message: 'Away', emoji: null },
             })
         })
+
+        describe('with only an emoji', () => {
+            it('sends a null message and prints the emoji', async () => {
+                const spy = captureConsole('log')
+                await run('set', '--emoji', '🤒', '--for', '1d', '--pause-activity')
+                expect(users.setStatus).toHaveBeenCalledWith({
+                    message: null,
+                    emoji: '🤒',
+                    activeUntil: new Date('2026-10-15T12:00:00.000Z'),
+                    effects: { pauseNotifications: null, pauseActivity: {} },
+                })
+                expect(logged(spy)).toBe('Status set: 🤒')
+            })
+
+            it('prints a null message in JSON', async () => {
+                const spy = captureConsole('log')
+                await run('set', '--emoji', '🤒', '--json')
+                expect(JSON.parse(logged(spy))).toEqual({
+                    status: { message: null, emoji: '🤒' },
+                })
+            })
+
+            it('previews the message as cleared on --dry-run', async () => {
+                const spy = captureConsole('log')
+                await run('set', '--emoji', '🤒', '--dry-run')
+                expect(users.setStatus).not.toHaveBeenCalled()
+                const out = logged(spy)
+                expect(out).toContain('Message: cleared')
+                expect(out).toContain('Emoji: 🤒')
+            })
+
+            it.each([[[]], [['--for', '2h', '--pause-notifications']]])(
+                'fails with MISSING_CONTENT before calling the API when %j gives neither a message nor an emoji',
+                async (flags) => {
+                    const error = await run('set', ...flags).catch((e) => e)
+                    expect(error).toMatchObject({
+                        code: 'MISSING_CONTENT',
+                        message: expect.stringContaining('message, an emoji or both'),
+                    })
+                    expect(users.setStatus).not.toHaveBeenCalled()
+                },
+            )
+
+            it('rejects an explicitly empty message, pointing at leaving it out', async () => {
+                const error = await run('set', '', '--emoji', '🤒').catch((e) => e)
+                expect(error.code).toBe('INVALID_VALUE')
+                expect(error.hints.join(' ')).toContain('leave the message out')
+                expect(users.setStatus).not.toHaveBeenCalled()
+            })
+        })
     })
 
     describe('clear', () => {
