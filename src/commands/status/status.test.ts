@@ -64,6 +64,26 @@ describe('tdc status', () => {
             expect(logged(spy)).toBe('🎯 Deep work (notifications paused)')
         })
 
+        // A status can be just an emoji, which the API returns with a null or absent message.
+        it.each([
+            ['null', { message: null, emoji: '🎯' }, '🎯'],
+            ['absent', { emoji: '🎯' }, '🎯'],
+            [
+                'null, with a pause',
+                {
+                    message: null,
+                    emoji: '🎯',
+                    effects: { pauseNotifications: { scope: { mode: 'all' } } },
+                },
+                '🎯 (notifications paused)',
+            ],
+        ])('prints an emoji-only status whose message is %s', async (_name, status, expected) => {
+            apiMocks.getSessionUser.mockResolvedValue({ status })
+            const spy = captureConsole('log')
+            await run('show')
+            expect(logged(spy)).toBe(expected)
+        })
+
         it('names each paused effect, notifications first', async () => {
             apiMocks.getSessionUser.mockResolvedValue({
                 status: {
