@@ -4,7 +4,7 @@ description: "Comms messaging CLI. View and respond to inbox threads, channel th
 license: MIT
 metadata:
   author: Doist
-  version: "5.0.2"
+  version: "5.0.3"
 ---
 
 # Comms CLI (tdc)

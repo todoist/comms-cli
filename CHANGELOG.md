@@ -1,3 +1,9 @@
+## [5.0.3](https://github.com/todoist/comms-cli/compare/v5.0.2...v5.0.3) (2026-11-17)
+
+### Bug Fixes
+
+- **status:** show a status that has only an emoji ([#122](https://github.com/todoist/comms-cli/issues/122)) ([51d09f6](https://github.com/todoist/comms-cli/commit/51d09f63789239e3b6ef3dd28122d17beaa013e2))
+
 ## [5.0.2](https://github.com/todoist/comms-cli/compare/v5.0.1...v5.0.2) (2026-11-11)
 
 ### Bug Fixes
