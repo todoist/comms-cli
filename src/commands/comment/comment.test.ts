@@ -1,5 +1,7 @@
 import { captureConsole, createTestProgram, mockStdin } from '@todoist/cli-core/testing'
+import { CommsApi } from '@todoist/comms-sdk'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { mockJsonFetch } from '../../lib/__fixtures__/custom-fetch.js'
 
 const apiMocks = vi.hoisted(() => ({
     getCommsClient: vi.fn(),
@@ -228,6 +230,35 @@ describe('comment delete', () => {
         await program.parseAsync(['node', 'tdc', 'comment', 'delete', '300', '--yes'])
 
         expect(client.comments.deleteComment).toHaveBeenCalledWith('300')
+        expect(consoleSpy).toHaveBeenCalledWith('Comment 300 deleted.')
+    })
+
+    it('succeeds when the API answers the delete with the deleted comment', async () => {
+        const deleted = {
+            id: '300',
+            thread_id: 'TH500',
+            channel_id: 'CH100',
+            workspace_id: 10,
+            creator: 1,
+            content: '-',
+            posted_ts: 1772409600,
+            deleted: true,
+            deleted_by: 1,
+            version: 1,
+            reactions: {},
+        }
+        const customFetch = mockJsonFetch(deleted)
+        const client = new CommsApi('test-token', { customFetch })
+        vi.spyOn(client.comments, 'getComment').mockResolvedValue(
+            createCommentFixture('300') as never,
+        )
+        vi.spyOn(client.users, 'getSessionUser').mockResolvedValue({ id: 1 } as never)
+        apiMocks.getCommsClient.mockResolvedValue(client)
+        const consoleSpy = captureConsole('log')
+
+        await createProgram().parseAsync(['node', 'tdc', 'comment', 'delete', '300', '--yes'])
+
+        expect(customFetch).toHaveBeenCalledTimes(1)
         expect(consoleSpy).toHaveBeenCalledWith('Comment 300 deleted.')
     })
 
