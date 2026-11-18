@@ -2,6 +2,7 @@ import type { CommsApi } from '@todoist/comms-sdk'
 import chalk from 'chalk'
 import { buildUserNameMap, getCommsClient } from '../../lib/api.js'
 import { formatRelativeDate } from '../../lib/dates.js'
+import { isCliErrorCode } from '../../lib/errors.js'
 import { renderMarkdown } from '../../lib/markdown.js'
 import { toDate, type PaginatedViewOptions } from '../../lib/options.js'
 import { colors, formatJson, pluralize } from '../../lib/output.js'
@@ -33,6 +34,25 @@ function formatCommentsHeader(
     return `--- ${label} ---`
 }
 
+// Comms rate limits channel lookups per user, so a bulk read of threads hits that limit first.
+// The name is only a label, so a rate-limited lookup falls back to the channel's id, as the
+// inbox does, instead of failing the view. It stays a string, so --json readers don't break.
+async function getChannelName(client: CommsApi, channelId: string): Promise<string> {
+    try {
+        const channel = await client.channels.getChannel(channelId)
+        return channel.name
+    } catch (error) {
+        if (isCliErrorCode(error, 'RATE_LIMITED')) return `ch:${channelId}`
+        throw error
+    }
+}
+
+function printThreadHeader(thread: { title: string }, channelName: string) {
+    console.log(chalk.bold(thread.title))
+    console.log(colors.channel(`[${channelName}]`))
+    console.log('')
+}
+
 async function viewSingleComment(
     client: CommsApi,
     threadId: string,
@@ -44,8 +64,8 @@ async function viewSingleComment(
         client.comments.getComment(commentId),
     ])
 
-    const [channel, userMap] = await Promise.all([
-        client.channels.getChannel(thread.channelId),
+    const [channelName, userMap] = await Promise.all([
+        getChannelName(client, thread.channelId),
         buildUserNameMap(thread.workspaceId, client),
     ])
 
@@ -53,7 +73,7 @@ async function viewSingleComment(
         const output = {
             ...comment,
             creatorName: userMap.get(comment.creator),
-            channelName: channel.name,
+            channelName,
             threadTitle: thread.title,
         }
         console.log(formatJson(output, undefined, options.full))
@@ -71,9 +91,7 @@ async function viewSingleComment(
         return
     }
 
-    console.log(chalk.bold(thread.title))
-    console.log(colors.channel(`[${channel.name}]`))
-    console.log('')
+    printThreadHeader(thread, channelName)
     await printComment(comment, userMap, options.raw ?? false)
 }
 
@@ -133,8 +151,8 @@ export async function viewThread(ref: string, options: ViewOptions): Promise<voi
         }
     }
 
-    const [channel, userMap] = await Promise.all([
-        client.channels.getChannel(thread.channelId),
+    const [channelName, userMap] = await Promise.all([
+        getChannelName(client, thread.channelId),
         buildUserNameMap(thread.workspaceId, client),
     ])
 
@@ -142,7 +160,7 @@ export async function viewThread(ref: string, options: ViewOptions): Promise<voi
         const output = {
             thread: {
                 ...thread,
-                channelName: channel.name,
+                channelName,
                 creatorName: userMap.get(thread.creator),
             },
             comments: displayComments.map((c) => ({
@@ -158,7 +176,7 @@ export async function viewThread(ref: string, options: ViewOptions): Promise<voi
         const threadOutput = {
             type: 'thread',
             ...thread,
-            channelName: channel.name,
+            channelName,
             creatorName: userMap.get(thread.creator),
         }
         console.log(JSON.stringify(threadOutput))
@@ -170,9 +188,7 @@ export async function viewThread(ref: string, options: ViewOptions): Promise<voi
         return
     }
 
-    console.log(chalk.bold(thread.title))
-    console.log(colors.channel(`[${channel.name}]`))
-    console.log('')
+    printThreadHeader(thread, channelName)
 
     if (options.unread) {
         const creatorName = userMap.get(thread.creator) || `user:${thread.creator}`
