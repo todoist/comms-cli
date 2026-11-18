@@ -1,26 +1,27 @@
+import type { Channel } from '@todoist/comms-sdk'
+
 import { getCommsClient } from './api.js'
 import { CliError } from './errors.js'
 import { includePrivateChannels } from './global-args.js'
 
-// Channel ID to whether it's public, for the channels the user has joined.
-const joinedChannelCache = new Map<number, Map<string, boolean>>()
+const joinedChannelCache = new Map<number, Channel[]>()
 const workspacePublicChannelCache = new Map<number, Set<string>>()
 
-async function getJoinedChannels(workspaceId: number): Promise<Map<string, boolean>> {
+/** The channels the user has joined, with their names. One request per workspace. */
+export async function getJoinedChannels(workspaceId: number): Promise<Channel[]> {
     const cached = joinedChannelCache.get(workspaceId)
     if (cached) return cached
 
     const client = await getCommsClient()
     const channels = await client.channels.getChannels({ workspaceId })
-    const joined = new Map(channels.map((ch) => [ch.id, ch.public]))
-    joinedChannelCache.set(workspaceId, joined)
-    return joined
+    joinedChannelCache.set(workspaceId, channels)
+    return channels
 }
 
 /** IDs of the public channels the user has joined. */
 export async function getPublicChannelIds(workspaceId: number): Promise<Set<string>> {
     const joined = await getJoinedChannels(workspaceId)
-    return new Set([...joined].filter(([, isPublic]) => isPublic).map(([id]) => id))
+    return new Set(joined.filter((ch) => ch.public).map((ch) => ch.id))
 }
 
 // Every public channel in the workspace, joined or not. Much bigger than the joined list (all
@@ -44,7 +45,7 @@ export function clearPublicChannelCache(): void {
 async function isPublicChannel(channelId: string, workspaceId: number): Promise<boolean> {
     const joined = await getJoinedChannels(workspaceId)
     return (
-        joined.get(channelId) ??
+        joined.find((ch) => ch.id === channelId)?.public ??
         // getChannels only returns joined channels, so an unjoined one could still be public.
         (await getWorkspacePublicChannelIds(workspaceId)).has(channelId)
     )
