@@ -35,23 +35,21 @@ function formatCommentsHeader(
 }
 
 // Comms rate limits channel lookups per user, so a bulk read of threads hits that limit first.
-// The name is only a label, so a rate-limited lookup returns null instead of failing the view.
-async function getChannelName(client: CommsApi, channelId: string): Promise<string | null> {
+// The name is only a label, so a rate-limited lookup falls back to the channel's id, as the
+// inbox does, instead of failing the view. It stays a string, so --json readers don't break.
+async function getChannelName(client: CommsApi, channelId: string): Promise<string> {
     try {
         const channel = await client.channels.getChannel(channelId)
         return channel.name
     } catch (error) {
-        if (isCliErrorCode(error, 'RATE_LIMITED')) return null
+        if (isCliErrorCode(error, 'RATE_LIMITED')) return `ch:${channelId}`
         throw error
     }
 }
 
-function printThreadHeader(
-    thread: { title: string; channelId: string },
-    channelName: string | null,
-) {
+function printThreadHeader(thread: { title: string }, channelName: string) {
     console.log(chalk.bold(thread.title))
-    console.log(colors.channel(`[${channelName ?? `ch:${thread.channelId}`}]`))
+    console.log(colors.channel(`[${channelName}]`))
     console.log('')
 }
 

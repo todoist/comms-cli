@@ -877,27 +877,31 @@ describe('thread view when the channel lookup fails', () => {
         expect(output).toContain('Comment 1')
     })
 
-    it('sets channelName to null in --json output when rate limited', async () => {
+    it('falls back to ch:<id> for channelName in --json output when rate limited', async () => {
         const output = JSON.parse(await viewOutput(clientWithChannelError(rateLimited), ['--json']))
 
-        expect(output.thread).toMatchObject({ channelId: 'CH100', channelName: null })
+        expect(output.thread).toMatchObject({ channelId: 'CH100', channelName: 'ch:CH100' })
         expect(output.comments).toHaveLength(1)
     })
 
-    it('sets channelName to null in --ndjson output when rate limited', async () => {
+    it('falls back to ch:<id> for channelName in --ndjson output when rate limited', async () => {
         const output = await viewOutput(clientWithChannelError(rateLimited), ['--ndjson'])
         const [threadLine, commentLine] = output.split('\n').map((line) => JSON.parse(line))
 
-        expect(threadLine).toMatchObject({ type: 'thread', channelId: 'CH100', channelName: null })
+        expect(threadLine).toMatchObject({
+            type: 'thread',
+            channelId: 'CH100',
+            channelName: 'ch:CH100',
+        })
         expect(commentLine).toMatchObject({ type: 'comment', id: '1' })
     })
 
-    it('sets channelName to null for a single comment when rate limited', async () => {
+    it('falls back to ch:<id> for channelName for a single comment when rate limited', async () => {
         const output = JSON.parse(
             await viewOutput(clientWithChannelError(rateLimited), ['--comment', '1', '--json']),
         )
 
-        expect(output).toMatchObject({ id: '1', channelName: null })
+        expect(output).toMatchObject({ id: '1', channelName: 'ch:CH100' })
     })
 
     it('still fails on any other error', async () => {
