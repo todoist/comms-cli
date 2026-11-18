@@ -7,8 +7,9 @@ import {
     createTestProgram,
     mockStdin,
 } from '@todoist/cli-core/testing'
-import { CommsApi, type CustomFetch, generateId } from '@todoist/comms-sdk'
+import { CommsApi, generateId } from '@todoist/comms-sdk'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { mockJsonFetch } from '../../lib/__fixtures__/custom-fetch.js'
 
 const apiMocks = vi.hoisted(() => ({
     getCommsClient: vi.fn(),
@@ -409,14 +410,7 @@ describe.each(['reply', 'close', 'reopen'] as const)('thread %s notifications', 
             creator: 2,
             posted_ts: 1772409600,
         }
-        const customFetch = vi.fn<CustomFetch>().mockResolvedValue({
-            ok: true,
-            status: 200,
-            statusText: 'OK',
-            headers: {},
-            text: async () => JSON.stringify(comment),
-            json: async () => comment,
-        })
+        const customFetch = mockJsonFetch(comment)
         const client = new CommsApi('test-token', { customFetch })
         vi.spyOn(client.threads, 'getThread').mockResolvedValue({
             ...createThreadFixture(threadId),

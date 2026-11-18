@@ -1,6 +1,7 @@
 import { captureConsole, createTestProgram, mockStdin } from '@todoist/cli-core/testing'
-import { CommsApi, type CustomFetch } from '@todoist/comms-sdk'
+import { CommsApi } from '@todoist/comms-sdk'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { mockJsonFetch } from '../../lib/__fixtures__/custom-fetch.js'
 
 const apiMocks = vi.hoisted(() => ({
     getCommsClient: vi.fn(),
@@ -106,14 +107,7 @@ describe('msg delete', () => {
             deleted_by: 1,
             version: 1,
         }
-        const customFetch = vi.fn<CustomFetch>().mockResolvedValue({
-            ok: true,
-            status: 200,
-            statusText: 'OK',
-            headers: {},
-            text: async () => JSON.stringify(deleted),
-            json: async () => deleted,
-        })
+        const customFetch = mockJsonFetch(deleted)
         const client = new CommsApi('test-token', { customFetch })
         vi.spyOn(client.conversationMessages, 'getMessage').mockResolvedValue(
             createMessageFixture('200') as never,
