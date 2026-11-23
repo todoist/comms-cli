@@ -226,13 +226,19 @@ and (b) a Comms OAuth provider (`auth-provider.ts`) whose `validate` probes
 `getSessionUser` and records auth mode/scope (derived from `handshake.readOnly`).
 
 The CLI's OAuth `client_id` is the URL of its client ID metadata document,
-`oauth/client-metadata.json` on `main` (`OAUTH_CLIENT_ID` in
-`auth-constants.ts`), so there is no registration step. Todoist fetches the
-document from that exact URL and binds tokens to it: never move, rename, or
-delete it. Each account stores the `client_id` its token was issued to
-(`oauthClientId`) and refreshes with it, so accounts from versions that
-registered through DCR keep refreshing with their DCR client until the next
-`tdc auth login`, which moves them to the metadata document and drops the old
+which the Comms backend serves at
+`https://comms.todoist.com/api/.well-known/oauth-client-cli` (`OAUTH_CLIENT_ID`
+in `auth-constants.ts`), so there is no registration step. Todoist fetches the
+document from that exact URL at every login and binds tokens to it: never
+change it. The document lives in `todoist/comms-backend`
+(`comms_cli_client_metadata`), and its `redirect_uris` must cover the callback
+cli-core listens on (portless `http://127.0.0.1/callback` and
+`http://localhost/callback`), so a change to the callback path needs a backend
+change first. 5.2.0 and earlier sign in with `oauth/client-metadata.json` on
+`main` instead, so keep that file too. Each account stores the `client_id` its
+token was issued to (`oauthClientId`) and refreshes with it, so accounts keep
+their client (a DCR client, or the earlier document) until the next
+`tdc auth login`, which moves them to the current document and drops the old
 `oauthClients` cache from config.
 
 Read path (`auth.ts`): env `COMMS_API_TOKEN` first, then the keyring store
