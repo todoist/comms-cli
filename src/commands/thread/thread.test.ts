@@ -339,6 +339,106 @@ describe('thread implicit view', () => {
         expect(client.comments.createComment).not.toHaveBeenCalled()
     })
 
+    it('refuses a plain reply to a closed thread and points at --reopen', async () => {
+        const client = createClient({ thread: { ...createThreadFixture(500), closed: true } })
+        apiMocks.getCommsClient.mockResolvedValue(client)
+
+        await expect(
+            createProgram().parseAsync(['node', 'tdc', 'thread', 'reply', '500', 'late reply']),
+        ).rejects.toMatchObject({
+            code: 'FORBIDDEN',
+            message: 'Thread 500 is closed, so it does not take new comments.',
+            hints: [
+                'Run `tdc thread reply id:500 "<content>" --reopen` to reopen it for everyone and post the reply',
+            ],
+        })
+        expect(client.comments.createComment).not.toHaveBeenCalled()
+    })
+
+    it('refuses a dry run of a plain reply to a closed thread', async () => {
+        const client = createClient({ thread: { ...createThreadFixture(500), closed: true } })
+        apiMocks.getCommsClient.mockResolvedValue(client)
+        const consoleSpy = captureConsole('log')
+
+        await expect(
+            createProgram().parseAsync([
+                'node',
+                'tdc',
+                'thread',
+                'reply',
+                '500',
+                'late reply',
+                '--dry-run',
+            ]),
+        ).rejects.toHaveProperty('code', 'FORBIDDEN')
+        expect(consoleSpy).not.toHaveBeenCalled()
+    })
+
+    it.each([
+        {
+            flag: '--close',
+            closed: true,
+            mutation: 'closeThread',
+            message: 'Thread 500 is already closed.',
+            hint: 'To comment on it, run `tdc thread reply id:500 "<content>" --reopen` to reopen it for everyone',
+        },
+        {
+            flag: '--reopen',
+            closed: false,
+            mutation: 'reopenThread',
+            message: 'Thread 500 is already open.',
+            hint: 'Run `tdc thread reply id:500 "<content>"` without --reopen to post the reply',
+        },
+    ] as const)(
+        'refuses $flag when the thread is already in that state',
+        async ({ flag, closed, mutation, message, hint }) => {
+            const client = createClient({ thread: { ...createThreadFixture(500), closed } })
+            apiMocks.getCommsClient.mockResolvedValue(client)
+
+            await expect(
+                createProgram().parseAsync([
+                    'node',
+                    'tdc',
+                    'thread',
+                    'reply',
+                    '500',
+                    'content',
+                    flag,
+                ]),
+            ).rejects.toMatchObject({ code: 'FORBIDDEN', message, hints: [hint] })
+            expect(client.threads[mutation]).not.toHaveBeenCalled()
+        },
+    )
+
+    it.each([
+        { args: [] as string[], closed: false, mutation: 'createComment' },
+        { args: ['--close'], closed: false, mutation: 'closeThread' },
+        { args: ['--reopen'], closed: true, mutation: 'reopenThread' },
+    ] as const)(
+        'posts through $mutation when the thread is closed: $closed',
+        async ({ args, closed, mutation }) => {
+            const client = createClient({ thread: { ...createThreadFixture(500), closed } })
+            apiMocks.getCommsClient.mockResolvedValue(client)
+            captureConsole('log')
+
+            await createProgram().parseAsync([
+                'node',
+                'tdc',
+                'thread',
+                'reply',
+                '500',
+                'content',
+                ...args,
+            ])
+
+            const post =
+                mutation === 'createComment'
+                    ? client.comments.createComment
+                    : client.threads[mutation]
+            expect(post).toHaveBeenCalledWith(expect.objectContaining({ content: 'content' }))
+        },
+    )
+
     it('--close and --reopen together produces an error', async () => {
         const program = createProgram()
 

@@ -1,3 +1,4 @@
+import type { ThreadAction } from '@todoist/comms-sdk'
 import chalk from 'chalk'
 import { getCommsClient } from '../../lib/api.js'
 import { uploadAttachments, validateAttachmentFiles } from '../../lib/attachments.js'
@@ -16,6 +17,38 @@ type ReplyOptions = MutationOptions &
         reopen?: boolean
         file?: string[]
     }
+
+/**
+ * Comms refuses a comment on a closed thread, closing a closed thread and reopening an open
+ * one, each with a 403 that reads as a permissions problem. Checking the state first names the
+ * problem and the fix, and stops a --dry-run preview of a reply that would fail. A thread whose
+ * state is unknown is left for Comms to judge.
+ */
+function assertThreadTakesReply(
+    threadId: string,
+    closed: boolean | null | undefined,
+    action: ThreadAction | undefined,
+): void {
+    if (typeof closed !== 'boolean') return
+    const reopenCommand = `\`tdc thread reply id:${threadId} "<content>" --reopen\``
+    if (action === undefined && closed) {
+        throw new CliError(
+            'FORBIDDEN',
+            `Thread ${threadId} is closed, so it does not take new comments.`,
+            [`Run ${reopenCommand} to reopen it for everyone and post the reply`],
+        )
+    }
+    if (action === 'close' && closed) {
+        throw new CliError('FORBIDDEN', `Thread ${threadId} is already closed.`, [
+            `To comment on it, run ${reopenCommand} to reopen it for everyone`,
+        ])
+    }
+    if (action === 'reopen' && !closed) {
+        throw new CliError('FORBIDDEN', `Thread ${threadId} is already open.`, [
+            `Run \`tdc thread reply id:${threadId} "<content>"\` without --reopen to post the reply`,
+        ])
+    }
+}
 
 export async function replyToThread(
     ref: string,
@@ -59,6 +92,9 @@ export async function replyToThread(
     const thread = await client.threads.getThread(threadId)
     await assertChannelIsPublic(thread.channelId, thread.workspaceId)
 
+    const action = options.close ? 'close' : options.reopen ? 'reopen' : undefined
+    assertThreadTakesReply(threadId, thread.closed, action)
+
     let recipients: string | number[] | undefined
     let resolved: ResolvedNotify | undefined
     if (notifyNone) {
@@ -71,7 +107,6 @@ export async function replyToThread(
         recipients = resolved.recipients
     }
 
-    const action = options.close ? 'close' : options.reopen ? 'reopen' : undefined
     const actionLabel = action === 'close' ? 'close' : action === 'reopen' ? 'reopen' : undefined
 
     if (options.dryRun) {
