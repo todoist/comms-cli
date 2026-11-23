@@ -4,7 +4,7 @@ import { buildUserNameMap, getCommsClient } from '../../lib/api.js'
 import { formatRelativeDate } from '../../lib/dates.js'
 import { renderMarkdown } from '../../lib/markdown.js'
 import { toDate, type PaginatedViewOptions } from '../../lib/options.js'
-import { colors, formatJson, pluralize } from '../../lib/output.js'
+import { closedThreadBadge, colors, formatJson, pluralize } from '../../lib/output.js'
 import { assertChannelIsPublic } from '../../lib/public-channels.js'
 import { extractId, parseRef, resolveThreadId } from '../../lib/refs.js'
 import { printComment, printSeparator } from './helpers.js'
@@ -71,7 +71,7 @@ async function viewSingleComment(
         return
     }
 
-    console.log(chalk.bold(thread.title))
+    console.log(`${chalk.bold(thread.title)}${closedThreadBadge(thread.closed)}`)
     console.log(colors.channel(`[${channel.name}]`))
     console.log('')
     await printComment(comment, userMap, options.raw ?? false)
@@ -170,7 +170,7 @@ export async function viewThread(ref: string, options: ViewOptions): Promise<voi
         return
     }
 
-    console.log(chalk.bold(thread.title))
+    console.log(`${chalk.bold(thread.title)}${closedThreadBadge(thread.closed)}`)
     console.log(colors.channel(`[${channel.name}]`))
     console.log('')
 

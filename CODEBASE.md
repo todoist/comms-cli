@@ -144,7 +144,8 @@ don't duplicate it here.
   `resolveGroupRef`, `resolveUserRefs`, `parseNotifyIdRefs`.
 - **`output.ts`** — `formatJson` / `formatNdjson` (+ paginated variants) with
   per-`EntityType` essential-field filtering, `formatError` / `formatErrorJson`,
-  `printJson` / `printNdjson` / `printEmpty` / `printDryRun`, `colors`, `pluralize`.
+  `printJson` / `printNdjson` / `printEmpty` / `printDryRun`, `colors`, `pluralize`,
+  `closedThreadBadge` (the `(closed)` marker after a thread title).
 - **`options.ts`** — `ViewOptions`, `PaginatedViewOptions`, `MutationOptions`
   (extend these rather than adding `json`/`full`/`ndjson` ad hoc).
 - **`config.ts`** — `~/.config/comms-cli/config.json` I/O over cli-core

@@ -6,7 +6,7 @@ import { formatRelativeDate } from './dates.js'
 import { CliError } from './errors.js'
 import { includePrivateChannels } from './global-args.js'
 import type { PaginatedViewOptions } from './options.js'
-import { colors, formatJson } from './output.js'
+import { closedThreadBadge, colors, formatJson } from './output.js'
 import { getPublicChannelIds } from './public-channels.js'
 import {
     resolveChannelId,
@@ -293,7 +293,8 @@ export function printSearchResults(
         const title = result.title || result.snippet.slice(0, 50)
         const time = colors.timestamp(formatRelativeDate(result.snippetLastUpdated))
 
-        console.log(`${type} ${title}`)
+        const closed = result.type === 'thread' ? closedThreadBadge(result.closed) : ''
+        console.log(`${type} ${title}${closed}`)
         console.log(`  ${colors.timestamp(result.snippet.slice(0, 100))}`)
         console.log(`  ${time}  ${colors.url(result.url)}`)
         console.log('')

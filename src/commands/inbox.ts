@@ -8,7 +8,7 @@ import { formatRelativeDate } from '../lib/dates.js'
 import { CliError } from '../lib/errors.js'
 import { includePrivateChannels, isAccessible } from '../lib/global-args.js'
 import { toDate, type PaginatedViewOptions } from '../lib/options.js'
-import { colors, formatJson, formatNdjson } from '../lib/output.js'
+import { closedThreadBadge, colors, formatJson, formatNdjson } from '../lib/output.js'
 import { getPublicChannelIds } from '../lib/public-channels.js'
 import { resolveWorkspaceRef } from '../lib/refs.js'
 import { fetchUnreadThreads, unreadFlags } from '../lib/threads.js'
@@ -163,7 +163,7 @@ async function showInbox(workspaceRef: string | undefined, options: InboxOptions
             ? chalk.yellow(isAccessible() ? ' (mention)' : ' @')
             : ''
 
-        console.log(`  ${title}${unreadBadge}${mentionBadge}`)
+        console.log(`  ${title}${closedThreadBadge(thread.closed)}${unreadBadge}${mentionBadge}`)
         console.log(`    ${time}  ${colors.timestamp(`id:${thread.id}`)}`)
         console.log(`    ${colors.url(thread.url)}`)
         console.log('')

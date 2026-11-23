@@ -173,7 +173,7 @@ describe('search result links', () => {
         vi.mocked(includePrivateChannels).mockReturnValue(true)
     })
 
-    function mockThreadHit(commentId?: string) {
+    function mockThreadHit(commentId?: string, closed?: boolean) {
         searchApiMocks.extendedSearch.mockResolvedValue({
             items: [
                 {
@@ -185,6 +185,7 @@ describe('search result links', () => {
                     threadId: 'thread-1',
                     channelId: 'channel-1',
                     commentId,
+                    closed,
                 },
             ],
             hasMore: false,
@@ -202,6 +203,20 @@ describe('search result links', () => {
         expect(log).toHaveBeenCalledWith(
             expect.stringContaining('/ch/channel-1/t/thread-1/c/comment-1'),
         )
+    })
+
+    it.each([
+        { closed: true, line: '[thread] Release (closed)' },
+        { closed: false, line: '[thread] Release' },
+        { closed: undefined, line: '[thread] Release' },
+    ])('titles a thread hit with closed: $closed as "$line"', async ({ closed, line }) => {
+        mockThreadHit(undefined, closed)
+        const program = createProgram()
+        const log = captureConsole('log')
+
+        await program.parseAsync(['node', 'tdc', 'search', 'Release'])
+
+        expect(log).toHaveBeenCalledWith(line)
     })
 
     it('links a thread hit to the thread', async () => {

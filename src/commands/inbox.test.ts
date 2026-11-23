@@ -305,3 +305,62 @@ describe('inbox unread mentions', () => {
         expect(lines).toContain('  Read thread')
     })
 })
+
+describe('inbox closed threads', () => {
+    let logSpy: ReturnType<typeof vi.spyOn>
+
+    beforeEach(() => {
+        vi.clearAllMocks()
+        apiMocks.getCurrentWorkspaceId.mockResolvedValue(1)
+        mockClient({
+            inboxThreads: [
+                {
+                    id: 'thread-closed',
+                    channelId: 'CH1',
+                    title: 'Closed thread',
+                    posted: '2026-05-02T00:00:00Z',
+                    closed: true,
+                    url: 'https://example.test/thread-closed',
+                },
+                {
+                    id: 'thread-open',
+                    channelId: 'CH1',
+                    title: 'Open thread',
+                    posted: '2026-05-01T00:00:00Z',
+                    closed: false,
+                    url: 'https://example.test/thread-open',
+                },
+            ],
+            unreadData: [
+                { threadId: 'thread-closed', channelId: 'CH1', objIndex: 2, directMention: false },
+            ],
+            getChannel: vi.fn().mockResolvedValue({ id: 'CH1', name: 'engineering' }),
+        })
+        logSpy = captureConsole('log')
+    })
+
+    it('marks a closed thread in human output, before the unread badge', async () => {
+        vi.stubEnv('TDC_ACCESSIBLE', '0')
+        try {
+            await createProgram().parseAsync(['node', 'tdc', 'inbox'])
+        } finally {
+            vi.unstubAllEnvs()
+        }
+
+        const lines = logSpy.mock.calls.flat() as string[]
+        expect(lines).toContain('  Closed thread (closed) *')
+        expect(lines).toContain('  Open thread')
+    })
+
+    it('includes closed in --json without --full', async () => {
+        await createProgram().parseAsync(['node', 'tdc', 'inbox', '--json'])
+
+        const output = JSON.parse(logSpy.mock.calls[0]?.[0] as string) as Array<
+            Record<string, unknown>
+        >
+        expect(output.map((t) => [t.id, t.closed])).toEqual([
+            ['thread-closed', true],
+            ['thread-open', false],
+        ])
+    })
+})

@@ -70,6 +70,7 @@ function createThreadFixture(id: number | string) {
         lastObjIndex: 3 as number | null,
         lastComment: null as ReturnType<typeof createComment> | null,
         isArchived: false,
+        closed: null as boolean | null,
         reactions: [],
         url: `https://comms.todoist.com/a/10/ch/CH100/t/${sid}`,
     }
@@ -788,6 +789,42 @@ describe('thread view comment count header', () => {
         const output = await viewOutput(client, ['--since', '2026-01-01'])
 
         expect(output).toContain('--- 2 comments ---')
+    })
+})
+
+describe('thread view closed state', () => {
+    beforeEach(() => {
+        clearWorkspaceUserCache()
+        vi.clearAllMocks()
+        configMocks.getConfig.mockResolvedValue({})
+        groupsMock.getWorkspaceGroups.mockResolvedValue([])
+        groupsMock.getWorkspaceUsers.mockResolvedValue([])
+    })
+
+    async function viewLines(closed: boolean | null, args: string[] = []) {
+        const client = createClient({
+            thread: { ...createThreadFixture(500), closed },
+            comments: [createComment(1, 1)],
+            users: { 1: { id: 1, fullName: 'Alice' }, 2: { id: 2, fullName: 'Bob' } },
+        })
+        apiMocks.getCommsClient.mockResolvedValue(client)
+        const consoleSpy = captureConsole('log')
+        await createProgram().parseAsync(['node', 'tdc', 'thread', 'view', '500', ...args])
+        return consoleSpy.mock.calls.map((c) => c[0])
+    }
+
+    it('marks a closed thread next to its title', async () => {
+        expect(await viewLines(true)).toContain('Test Thread (closed)')
+    })
+
+    it.each([false, null])('shows only the title when closed is %s', async (closed) => {
+        const lines = await viewLines(closed)
+        expect(lines).toContain('Test Thread')
+        expect(lines.join('\n')).not.toContain('(closed)')
+    })
+
+    it('marks a closed thread when viewing one of its comments', async () => {
+        expect(await viewLines(true, ['--comment', '1'])).toContain('Test Thread (closed)')
     })
 })
 
