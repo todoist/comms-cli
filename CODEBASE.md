@@ -230,7 +230,11 @@ which the Comms backend serves at
 `https://comms.todoist.com/api/.well-known/oauth-client-cli` (`OAUTH_CLIENT_ID`
 in `auth-constants.ts`), so there is no registration step. Todoist fetches the
 document from that exact URL at every login and binds tokens to it: never
-change it. 5.2.0 and earlier sign in with `oauth/client-metadata.json` on
+change it. The document lives in `todoist/comms-backend`
+(`comms_cli_client_metadata`), and its `redirect_uris` must cover the callback
+cli-core listens on (portless `http://127.0.0.1/callback` and
+`http://localhost/callback`), so a change to the callback path needs a backend
+change first. 5.2.0 and earlier sign in with `oauth/client-metadata.json` on
 `main` instead, so keep that file too. Each account stores the `client_id` its
 token was issued to (`oauthClientId`) and refreshes with it, so accounts keep
 their client (a DCR client, or the earlier document) until the next
