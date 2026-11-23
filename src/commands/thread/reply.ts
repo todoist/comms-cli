@@ -71,6 +71,14 @@ export async function replyToThread(
         )
     }
 
+    // Before reading content, so a reply the thread would refuse fails without opening the editor.
+    const client = await getCommsClient()
+    const thread = await client.threads.getThread(threadId)
+    await assertChannelIsPublic(thread.channelId, thread.workspaceId)
+
+    const action = options.close ? 'close' : options.reopen ? 'reopen' : undefined
+    assertThreadTakesReply(threadId, thread.closed, action)
+
     let replyContent = await readContent(content, options)
     // A file-only reply is allowed: skip the editor prompt and the empty-content guard.
     if (!replyContent && !hasFiles) {
@@ -87,13 +95,6 @@ export async function replyToThread(
     const notifyValue = options.notify ?? 'EVERYONE_IN_THREAD'
     const notifyNone = notifyValue === 'NONE'
     const isSpecialRecipient = notifyValue === 'EVERYONE' || notifyValue === 'EVERYONE_IN_THREAD'
-
-    const client = await getCommsClient()
-    const thread = await client.threads.getThread(threadId)
-    await assertChannelIsPublic(thread.channelId, thread.workspaceId)
-
-    const action = options.close ? 'close' : options.reopen ? 'reopen' : undefined
-    assertThreadTakesReply(threadId, thread.closed, action)
 
     let recipients: string | number[] | undefined
     let resolved: ResolvedNotify | undefined

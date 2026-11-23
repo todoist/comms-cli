@@ -355,6 +355,16 @@ describe('thread implicit view', () => {
         expect(client.comments.createComment).not.toHaveBeenCalled()
     })
 
+    it('refuses a reply to a closed thread before opening the editor', async () => {
+        const client = createClient({ thread: { ...createThreadFixture(500), closed: true } })
+        apiMocks.getCommsClient.mockResolvedValue(client)
+
+        await expect(
+            createProgram().parseAsync(['node', 'tdc', 'thread', 'reply', '500']),
+        ).rejects.toHaveProperty('code', 'FORBIDDEN')
+        expect(openEditor).not.toHaveBeenCalled()
+    })
+
     it('refuses a dry run of a plain reply to a closed thread', async () => {
         const client = createClient({ thread: { ...createThreadFixture(500), closed: true } })
         apiMocks.getCommsClient.mockResolvedValue(client)
@@ -415,7 +425,7 @@ describe('thread implicit view', () => {
         { args: ['--close'], closed: false, mutation: 'closeThread' },
         { args: ['--reopen'], closed: true, mutation: 'reopenThread' },
     ] as const)(
-        'posts through $mutation when the thread is closed: $closed',
+        'posts through $mutation when closed is $closed',
         async ({ args, closed, mutation }) => {
             const client = createClient({ thread: { ...createThreadFixture(500), closed } })
             apiMocks.getCommsClient.mockResolvedValue(client)

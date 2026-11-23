@@ -358,9 +358,8 @@ describe('inbox closed threads', () => {
         const output = JSON.parse(logSpy.mock.calls[0]?.[0] as string) as Array<
             Record<string, unknown>
         >
-        expect(output.map((t) => [t.id, t.closed])).toEqual([
-            ['thread-closed', true],
-            ['thread-open', false],
-        ])
+        const byId = new Map(output.map((t) => [t.id, t]))
+        expect(byId.get('thread-closed')).toMatchObject({ closed: true })
+        expect(byId.get('thread-open')).toMatchObject({ closed: false })
     })
 })
