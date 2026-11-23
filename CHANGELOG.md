@@ -1,3 +1,9 @@
+## [5.2.0](https://github.com/todoist/comms-cli/compare/v5.1.1...v5.2.0) (2026-11-23)
+
+### Features
+
+- **thread:** show closed threads and refuse replies they would reject ([#126](https://github.com/todoist/comms-cli/issues/126)) ([8a32d1b](https://github.com/todoist/comms-cli/commit/8a32d1b9fc1af3412590353cb47c845530a29650))
+
 ## [5.1.1](https://github.com/todoist/comms-cli/compare/v5.1.0...v5.1.1) (2026-11-18)
 
 ### Bug Fixes
