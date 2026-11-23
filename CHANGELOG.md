@@ -1,3 +1,9 @@
+## [5.3.0](https://github.com/todoist/comms-cli/compare/v5.2.0...v5.3.0) (2026-11-23)
+
+### Features
+
+- **auth:** sign in with the client ID metadata document the Comms backend serves ([#127](https://github.com/todoist/comms-cli/issues/127)) ([8ff8776](https://github.com/todoist/comms-cli/commit/8ff8776cc6d73227fe1ee62502654260b4c35a0f))
+
 ## [5.2.0](https://github.com/todoist/comms-cli/compare/v5.1.1...v5.2.0) (2026-11-23)
 
 ### Features
