@@ -8,6 +8,7 @@ import { CliError } from '../../lib/errors.js'
 import { isAccessible } from '../../lib/global-args.js'
 import type { PaginatedViewOptions } from '../../lib/options.js'
 import {
+    closedThreadBadge,
     colors,
     formatPaginatedJson,
     formatPaginatedNdjson,
@@ -272,7 +273,7 @@ export async function showChannelThreads(
         const time = colors.timestamp(formatRelativeDate(thread.lastUpdated))
         const unreadBadge = thread.isUnread ? chalk.blue(isAccessible() ? ' (unread)' : ' *') : ''
 
-        console.log(`  ${title}${unreadBadge}`)
+        console.log(`  ${title}${closedThreadBadge(thread.closed)}${unreadBadge}`)
         console.log(`    ${time}  ${colors.timestamp(`id:${thread.id}`)}`)
         console.log(`    ${colors.url(thread.url)}`)
         console.log('')

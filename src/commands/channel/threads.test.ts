@@ -50,6 +50,7 @@ type Thread = {
     lastUpdated: Date
     posted: Date
     isArchived: boolean
+    closed?: boolean | null
     url: string
     pinned?: boolean
     snippet?: string
@@ -534,6 +535,31 @@ describe('channel threads', () => {
             hasUnreadMention: true,
             url: 'https://comms.todoist.com/a/1/ch/CH100/t/1',
         })
+    })
+
+    it('marks a closed thread in human output', async () => {
+        setupClient({
+            threads: [createThread(2, { closed: true }), createThread(1, { closed: false })],
+        })
+        const consoleSpy = captureConsole('log')
+        const program = createProgram()
+
+        await program.parseAsync(['node', 'tdc', 'channel', 'threads', '12345'])
+
+        const lines = consoleSpy.mock.calls.map((c) => c[0])
+        expect(lines).toContain('  Thread 2 (closed)')
+        expect(lines).toContain('  Thread 1')
+    })
+
+    it('--json emits closed without --full', async () => {
+        setupClient({ threads: [createThread(1, { closed: true })] })
+        const consoleSpy = captureConsole('log')
+        const program = createProgram()
+
+        await program.parseAsync(['node', 'tdc', 'channel', 'threads', '12345', '--json'])
+
+        const output = JSON.parse(consoleSpy.mock.calls[0][0])
+        expect(output.results[0]).toMatchObject({ id: '1', closed: true })
     })
 
     it('--ndjson emits one thread per line plus _meta terminator when paginated', async () => {

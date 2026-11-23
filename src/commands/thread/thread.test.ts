@@ -70,6 +70,7 @@ function createThreadFixture(id: number | string) {
         lastObjIndex: 3 as number | null,
         lastComment: null as ReturnType<typeof createComment> | null,
         isArchived: false,
+        closed: null as boolean | null,
         reactions: [],
         url: `https://comms.todoist.com/a/10/ch/CH100/t/${sid}`,
     }
@@ -337,6 +338,116 @@ describe('thread implicit view', () => {
         )
         expect(client.comments.createComment).not.toHaveBeenCalled()
     })
+
+    it('refuses a plain reply to a closed thread and points at --reopen', async () => {
+        const client = createClient({ thread: { ...createThreadFixture(500), closed: true } })
+        apiMocks.getCommsClient.mockResolvedValue(client)
+
+        await expect(
+            createProgram().parseAsync(['node', 'tdc', 'thread', 'reply', '500', 'late reply']),
+        ).rejects.toMatchObject({
+            code: 'FORBIDDEN',
+            message: 'Thread 500 is closed, so it does not take new comments.',
+            hints: [
+                'Run `tdc thread reply id:500 "<content>" --reopen` to reopen it for everyone and post the reply',
+            ],
+        })
+        expect(client.comments.createComment).not.toHaveBeenCalled()
+    })
+
+    it('refuses a reply to a closed thread before opening the editor', async () => {
+        const client = createClient({ thread: { ...createThreadFixture(500), closed: true } })
+        apiMocks.getCommsClient.mockResolvedValue(client)
+
+        await expect(
+            createProgram().parseAsync(['node', 'tdc', 'thread', 'reply', '500']),
+        ).rejects.toHaveProperty('code', 'FORBIDDEN')
+        expect(openEditor).not.toHaveBeenCalled()
+    })
+
+    it('refuses a dry run of a plain reply to a closed thread', async () => {
+        const client = createClient({ thread: { ...createThreadFixture(500), closed: true } })
+        apiMocks.getCommsClient.mockResolvedValue(client)
+        const consoleSpy = captureConsole('log')
+
+        await expect(
+            createProgram().parseAsync([
+                'node',
+                'tdc',
+                'thread',
+                'reply',
+                '500',
+                'late reply',
+                '--dry-run',
+            ]),
+        ).rejects.toHaveProperty('code', 'FORBIDDEN')
+        expect(consoleSpy).not.toHaveBeenCalled()
+    })
+
+    it.each([
+        {
+            flag: '--close',
+            closed: true,
+            mutation: 'closeThread',
+            message: 'Thread 500 is already closed.',
+            hint: 'To comment on it, run `tdc thread reply id:500 "<content>" --reopen` to reopen it for everyone',
+        },
+        {
+            flag: '--reopen',
+            closed: false,
+            mutation: 'reopenThread',
+            message: 'Thread 500 is already open.',
+            hint: 'Run `tdc thread reply id:500 "<content>"` without --reopen to post the reply',
+        },
+    ] as const)(
+        'refuses $flag when the thread is already in that state',
+        async ({ flag, closed, mutation, message, hint }) => {
+            const client = createClient({ thread: { ...createThreadFixture(500), closed } })
+            apiMocks.getCommsClient.mockResolvedValue(client)
+
+            await expect(
+                createProgram().parseAsync([
+                    'node',
+                    'tdc',
+                    'thread',
+                    'reply',
+                    '500',
+                    'content',
+                    flag,
+                ]),
+            ).rejects.toMatchObject({ code: 'FORBIDDEN', message, hints: [hint] })
+            expect(client.threads[mutation]).not.toHaveBeenCalled()
+        },
+    )
+
+    it.each([
+        { args: [] as string[], closed: false, mutation: 'createComment' },
+        { args: ['--close'], closed: false, mutation: 'closeThread' },
+        { args: ['--reopen'], closed: true, mutation: 'reopenThread' },
+    ] as const)(
+        'posts through $mutation when closed is $closed',
+        async ({ args, closed, mutation }) => {
+            const client = createClient({ thread: { ...createThreadFixture(500), closed } })
+            apiMocks.getCommsClient.mockResolvedValue(client)
+            captureConsole('log')
+
+            await createProgram().parseAsync([
+                'node',
+                'tdc',
+                'thread',
+                'reply',
+                '500',
+                'content',
+                ...args,
+            ])
+
+            const post =
+                mutation === 'createComment'
+                    ? client.comments.createComment
+                    : client.threads[mutation]
+            expect(post).toHaveBeenCalledWith(expect.objectContaining({ content: 'content' }))
+        },
+    )
 
     it('--close and --reopen together produces an error', async () => {
         const program = createProgram()
@@ -788,6 +899,42 @@ describe('thread view comment count header', () => {
         const output = await viewOutput(client, ['--since', '2026-01-01'])
 
         expect(output).toContain('--- 2 comments ---')
+    })
+})
+
+describe('thread view closed state', () => {
+    beforeEach(() => {
+        clearWorkspaceUserCache()
+        vi.clearAllMocks()
+        configMocks.getConfig.mockResolvedValue({})
+        groupsMock.getWorkspaceGroups.mockResolvedValue([])
+        groupsMock.getWorkspaceUsers.mockResolvedValue([])
+    })
+
+    async function viewLines(closed: boolean | null, args: string[] = []) {
+        const client = createClient({
+            thread: { ...createThreadFixture(500), closed },
+            comments: [createComment(1, 1)],
+            users: { 1: { id: 1, fullName: 'Alice' }, 2: { id: 2, fullName: 'Bob' } },
+        })
+        apiMocks.getCommsClient.mockResolvedValue(client)
+        const consoleSpy = captureConsole('log')
+        await createProgram().parseAsync(['node', 'tdc', 'thread', 'view', '500', ...args])
+        return consoleSpy.mock.calls.map((c) => c[0])
+    }
+
+    it('marks a closed thread next to its title', async () => {
+        expect(await viewLines(true)).toContain('Test Thread (closed)')
+    })
+
+    it.each([false, null])('shows only the title when closed is %s', async (closed) => {
+        const lines = await viewLines(closed)
+        expect(lines).toContain('Test Thread')
+        expect(lines.join('\n')).not.toContain('(closed)')
+    })
+
+    it('marks a closed thread when viewing one of its comments', async () => {
+        expect(await viewLines(true, ['--comment', '1'])).toContain('Test Thread (closed)')
     })
 })
 

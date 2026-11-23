@@ -152,6 +152,8 @@ Default `--notify` for reply is EVERYONE_IN_THREAD, which may notify more people
 
 `--notify` automatically resolves IDs: group IDs are routed to the `groups` API field, user IDs to `recipients`. No special syntax needed.
 
+A closed thread takes no new comments. `inbox`, `channel threads`, `search`, `mentions` and `thread view` mark it `(closed)` after the title, and `--json` carries `closed`. A plain reply to a closed thread fails with `FORBIDDEN` before posting; `--reopen` reopens it for everyone and posts the reply, so confirm with the user first. `--close` on a closed thread and `--reopen` on an open one fail the same way.
+
 ## Thread Comments
 
 ```bash

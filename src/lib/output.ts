@@ -13,6 +13,14 @@ export const colors = {
     error: chalk.red,
 }
 
+/**
+ * Marks a closed thread after its title in human output. Plain text, so it reads the
+ * same with --accessible.
+ */
+export function closedThreadBadge(closed: boolean | null | undefined): string {
+    return closed ? chalk.dim(' (closed)') : ''
+}
+
 const THREAD_ESSENTIAL_FIELDS = [
     'id',
     'title',
@@ -23,6 +31,7 @@ const THREAD_ESSENTIAL_FIELDS = [
     'lastUpdated',
     'commentCount',
     'isArchived',
+    'closed',
     'isUnread',
     'hasUnreadMention',
     'url',
