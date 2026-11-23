@@ -185,12 +185,12 @@ export function createCommsAuthProvider(
 
 /**
  * The `client_id` for an authorize or refresh request. A login starts from an
- * empty handshake, so it always uses the client ID metadata document. A refresh
- * carries the client the stored token was issued to
- * (`getCommsOAuthRefreshHandshake`), which must be reused because Todoist binds
- * refresh tokens to their client: for accounts that last signed in through DCR
- * that is the `client_id` registered back then, and they keep using it until
- * the next `tdc auth login` moves them to the metadata document.
+ * empty handshake, so it always uses `OAUTH_CLIENT_ID`. A refresh carries the
+ * client the stored token was issued to (`getCommsOAuthRefreshHandshake`),
+ * which must be reused because Todoist binds refresh tokens to their client:
+ * for older accounts that is the `client_id` registered through DCR or the
+ * earlier metadata document in this repo, and they keep using it until the
+ * next `tdc auth login` moves them to `OAUTH_CLIENT_ID`.
  */
 function resolveClientId(handshake: Record<string, unknown>): string {
     return optionalHandshakeString(handshake, 'clientId') ?? OAUTH_CLIENT_ID
