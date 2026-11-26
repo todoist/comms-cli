@@ -1773,6 +1773,30 @@ describe('thread rename', () => {
         expect(consoleSpy).toHaveBeenCalledWith('Thread 500 renamed to "New Title".')
     })
 
+    it('renames silently with --silent', async () => {
+        const client = createClient()
+        apiMocks.getCommsClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        captureConsole('log')
+
+        await program.parseAsync([
+            'node',
+            'tdc',
+            'thread',
+            'rename',
+            '500',
+            'New Title',
+            '--silent',
+        ])
+
+        expect(client.threads.updateThread).toHaveBeenCalledWith({
+            id: '500',
+            title: 'New Title',
+            silent: true,
+        })
+    })
+
     it('shows dry run output', async () => {
         const client = createClient()
         apiMocks.getCommsClient.mockResolvedValue(client)

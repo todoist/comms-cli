@@ -141,6 +141,7 @@ tdc thread delete <ref>             # Preview thread deletion (requires --yes to
 tdc thread delete <ref> --yes       # Permanently delete a thread
 tdc thread delete <ref> --yes --json # Delete and return status as JSON
 tdc thread rename <ref> "New title"  # Rename a thread (change its title)
+tdc thread rename <ref> "New title" --silent  # Rename without the "changed the title" comment (no unread, no bump)
 tdc thread rename <ref> "New title" --json  # Rename and return { id, title } as JSON
 tdc thread rename <ref> "New title" --json --full  # Rename and return full thread as JSON
 tdc thread update <ref> "New body"   # Update a thread's body (the first post)
