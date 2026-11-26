@@ -252,20 +252,26 @@ describe('msg pin and unpin', () => {
         expect(consoleSpy).toHaveBeenCalledWith(`Message 200 ${done}.`)
     })
 
-    it('prints id, pinnedDate and pinnedBy with --json', async () => {
-        const client = createClient()
-        apiMocks.getCommsClient.mockResolvedValue(client)
-        const program = createProgram()
-        const consoleSpy = captureConsole('log')
+    it.each([
+        ['pin', '2026-11-26T15:00:00.000Z', 1],
+        ['unpin', null, null],
+    ] as const)(
+        '%s --json prints id, pinnedDate and pinnedBy',
+        async (verb, pinnedDate, pinnedBy) => {
+            const client = createClient()
+            apiMocks.getCommsClient.mockResolvedValue(client)
+            const program = createProgram()
+            const consoleSpy = captureConsole('log')
 
-        await program.parseAsync(['node', 'tdc', 'msg', 'pin', '200', '--json'])
+            await program.parseAsync(['node', 'tdc', 'msg', verb, '200', '--json'])
 
-        expect(JSON.parse(consoleSpy.mock.calls[0][0])).toEqual({
-            id: '200',
-            pinnedDate: '2026-11-26T15:00:00.000Z',
-            pinnedBy: 1,
-        })
-    })
+            expect(JSON.parse(consoleSpy.mock.calls[0][0])).toEqual({
+                id: '200',
+                pinnedDate,
+                pinnedBy,
+            })
+        },
+    )
 
     it('previews without pinning in --dry-run', async () => {
         const client = createClient()

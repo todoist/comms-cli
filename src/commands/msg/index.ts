@@ -80,5 +80,12 @@ Examples:
         .option('--dry-run', 'Show what would happen without executing')
         .option('--json', 'Output result as JSON')
         .option('--full', 'Include all fields in JSON output')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tdc msg unpin id:CbS8n2Kp4Qx6Rz9Lm3Va
+  tdc msg unpin id:CbS8n2Kp4Qx6Rz9Lm3Va --json`,
+        )
         .action(unpinMessage)
 }
