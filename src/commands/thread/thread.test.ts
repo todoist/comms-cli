@@ -1817,6 +1817,29 @@ describe('thread rename', () => {
         expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Would rename thread'))
         expect(consoleSpy).toHaveBeenCalledWith('  Thread: Test Thread (500)')
         expect(consoleSpy).toHaveBeenCalledWith('  New title: New Title')
+        expect(consoleSpy).not.toHaveBeenCalledWith(expect.stringContaining('Title comment'))
+        expect(client.threads.updateThread).not.toHaveBeenCalled()
+    })
+
+    it('says in the dry run that --silent skips the title comment', async () => {
+        const client = createClient()
+        apiMocks.getCommsClient.mockResolvedValue(client)
+
+        const program = createProgram()
+        const consoleSpy = captureConsole('log')
+
+        await program.parseAsync([
+            'node',
+            'tdc',
+            'thread',
+            'rename',
+            '500',
+            'New Title',
+            '--silent',
+            '--dry-run',
+        ])
+
+        expect(consoleSpy).toHaveBeenCalledWith('  Title comment: skipped (--silent)')
         expect(client.threads.updateThread).not.toHaveBeenCalled()
     })
 

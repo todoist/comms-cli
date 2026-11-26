@@ -21,6 +21,7 @@ export async function renameThread(
         printDryRun('rename thread', {
             Thread: `${thread.title} (${threadId})`,
             'New title': title,
+            'Title comment': options.silent ? 'skipped (--silent)' : undefined,
         })
         return
     }
