@@ -89,11 +89,13 @@ function createClient({
     activeConversations = [],
     archivedConversations = [],
     messagesByConversation = {},
+    pinnedByConversation = {},
     users = {},
 }: {
     activeConversations?: TestConversation[]
     archivedConversations?: TestConversation[]
     messagesByConversation?: Record<string, Array<Record<string, unknown>>>
+    pinnedByConversation?: Record<string, Array<Record<string, unknown>>>
     users?: Record<number, { id: number; fullName: string }>
 }) {
     const conversationsById = new Map(
@@ -127,7 +129,7 @@ function createClient({
         },
         conversationMessages: {
             getPinnedMessages: vi.fn(
-                async (conversationId: string) => messagesByConversation[conversationId] ?? [],
+                async (conversationId: string) => pinnedByConversation[conversationId] ?? [],
             ),
             getMessages: vi.fn(
                 async ({
@@ -1725,9 +1727,24 @@ describe('conversation view --pinned', () => {
         vi.clearAllMocks()
     })
 
-    it('fetches the pinned messages instead of the latest ones', async () => {
+    const message = (id: string, content: string) => ({
+        id,
+        content,
+        creator: 1,
+        conversationId: '42',
+        workspaceId: 1,
+        posted: new Date('2026-03-08T10:05:00.000Z'),
+    })
+
+    it('shows the pinned messages instead of the latest ones', async () => {
         const conversation = createConversation(42, [1], '2026-03-08T10:00:00.000Z')
-        const client = createClient({ activeConversations: [conversation] })
+        const client = createClient({
+            activeConversations: [conversation],
+            messagesByConversation: {
+                '42': [message('98', 'Latest'), message('99', 'Pinned plan')],
+            },
+            pinnedByConversation: { '42': [message('99', 'Pinned plan')] },
+        })
         apiMocks.getCommsClient.mockResolvedValue(client)
         const program = createProgram()
         const consoleSpy = captureConsole('log')
@@ -1736,6 +1753,22 @@ describe('conversation view --pinned', () => {
 
         expect(client.conversationMessages.getPinnedMessages).toHaveBeenCalledWith('42')
         expect(client.conversationMessages.getMessages).not.toHaveBeenCalled()
+        expect(consoleSpy).toHaveBeenCalledWith('Pinned plan')
+        expect(consoleSpy).not.toHaveBeenCalledWith('Latest')
+    })
+
+    it('says when nothing is pinned', async () => {
+        const conversation = createConversation(42, [1], '2026-03-08T10:00:00.000Z')
+        const client = createClient({
+            activeConversations: [conversation],
+            messagesByConversation: { '42': [message('98', 'Latest')] },
+        })
+        apiMocks.getCommsClient.mockResolvedValue(client)
+        const program = createProgram()
+        const consoleSpy = captureConsole('log')
+
+        await program.parseAsync(['node', 'tdc', 'conversation', 'view', '42', '--pinned'])
+
         expect(consoleSpy).toHaveBeenCalledWith('No pinned messages.')
     })
 

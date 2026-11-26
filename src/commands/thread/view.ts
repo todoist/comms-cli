@@ -91,7 +91,7 @@ export async function viewThread(ref: string, options: ViewOptions): Promise<voi
     }
     if (
         options.pinned &&
-        (options.comment !== undefined ||
+        (commentId !== undefined ||
             options.unread ||
             options.since ||
             options.until ||
@@ -99,12 +99,12 @@ export async function viewThread(ref: string, options: ViewOptions): Promise<voi
     ) {
         throw new CliError(
             'CONFLICTING_OPTIONS',
-            '--pinned lists every pinned comment, so it cannot be used with --comment, --unread, --since, --until or --limit',
+            '--pinned lists every pinned comment, so it cannot be used with --comment, a comment URL, --unread, --since, --until or --limit',
         )
     }
     const client = await getCommsClient()
 
-    if (commentId !== undefined && !options.pinned) {
+    if (commentId !== undefined) {
         return viewSingleComment(client, threadId, commentId, options)
     }
 
