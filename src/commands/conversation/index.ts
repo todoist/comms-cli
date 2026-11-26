@@ -86,6 +86,7 @@ Notes:
         .command('view [conversation-ref]', { isDefault: true })
         .description('Display a conversation with its messages')
         .option('--limit <n>', 'Max messages to show (default: 50)')
+        .option('--pinned', 'Show only the pinned messages')
         .option('--since <date>', 'Messages newer than')
         .option('--until <date>', 'Messages older than')
         .option('--raw', 'Show raw markdown instead of rendered')

@@ -2,6 +2,7 @@ import type { CommsApi, VisibleWorkspaceUser } from '@todoist/comms-sdk'
 import chalk from 'chalk'
 import { getCommsClient } from '../../lib/api.js'
 import { formatRelativeDate } from '../../lib/dates.js'
+import { CliError } from '../../lib/errors.js'
 import { renderMarkdown } from '../../lib/markdown.js'
 import { toDate } from '../../lib/options.js'
 import { colors, filterEntityFields } from '../../lib/output.js'
@@ -28,18 +29,26 @@ export async function viewConversation(
     ref: string,
     options: ConversationViewOptions,
 ): Promise<void> {
+    if (options.pinned && (options.since || options.until || options.limit)) {
+        throw new CliError(
+            'CONFLICTING_OPTIONS',
+            '--pinned lists every pinned message, so it cannot be used with --since, --until or --limit',
+        )
+    }
     const conversationId = resolveConversationId(ref)
     const client = await getCommsClient()
     const limit = options.limit ? parseInt(options.limit, 10) : 50
 
     const [conversation, messages] = await Promise.all([
         client.conversations.getConversation(conversationId),
-        client.conversationMessages.getMessages({
-            conversationId,
-            newerThan: toDate(options.since),
-            olderThan: toDate(options.until),
-            limit,
-        }),
+        options.pinned
+            ? client.conversationMessages.getPinnedMessages(conversationId)
+            : client.conversationMessages.getMessages({
+                  conversationId,
+                  newerThan: toDate(options.since),
+                  olderThan: toDate(options.until),
+                  limit,
+              }),
     ])
 
     const userMap = await fetchUserNamesByIds(client, conversation.workspaceId, [
@@ -86,7 +95,7 @@ export async function viewConversation(
     console.log('')
 
     if (messages.length === 0) {
-        console.log('No messages.')
+        console.log(options.pinned ? 'No pinned messages.' : 'No messages.')
         return
     }
 

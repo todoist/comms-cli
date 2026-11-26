@@ -130,6 +130,7 @@ tdc inbox --mentions                # unread threads where you were mentioned
 tdc mentions                        # content mentioning you
 tdc mentions --since 2026-04-01 --all --json
 tdc thread view <ref>               # view thread with comments
+tdc thread view <ref> --pinned      # only the pinned comments
 tdc thread view <ref> --comment id:CbM8n2Kp4Qx6Rz9Lm3Va # view a specific comment
 tdc thread reply <ref>              # reply to a thread
 tdc thread reply <ref> "Update" --notify NONE # reply without notifying anyone
@@ -143,6 +144,7 @@ tdc thread mark-unread <ref>        # mark it unread again (--from <comment-ref>
 tdc conversation unread             # list unread conversations
 tdc conversation list               # list conversations (--kind, --participant, --name, --state)
 tdc conversation view <ref>         # view conversation messages
+tdc conversation view <ref> --pinned  # only the pinned messages
 tdc conversation done <ref> --yes   # archive a conversation
 tdc conversation undone <ref> --yes # unarchive it
 tdc msg view <ref>                  # view a conversation message

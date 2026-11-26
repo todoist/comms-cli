@@ -126,6 +126,9 @@ function createClient({
             })),
         },
         conversationMessages: {
+            getPinnedMessages: vi.fn(
+                async (conversationId: string) => messagesByConversation[conversationId] ?? [],
+            ),
             getMessages: vi.fn(
                 async ({
                     conversationId,
@@ -1714,5 +1717,45 @@ describe('conversation pagination', () => {
 
         expect(consoleSpy).toHaveBeenCalledWith('Conversation with Me, Alice Example')
         expect(client.conversations.getConversations).toHaveBeenCalledTimes(2)
+    })
+})
+
+describe('conversation view --pinned', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('fetches the pinned messages instead of the latest ones', async () => {
+        const conversation = createConversation(42, [1], '2026-03-08T10:00:00.000Z')
+        const client = createClient({ activeConversations: [conversation] })
+        apiMocks.getCommsClient.mockResolvedValue(client)
+        const program = createProgram()
+        const consoleSpy = captureConsole('log')
+
+        await program.parseAsync(['node', 'tdc', 'conversation', 'view', '42', '--pinned'])
+
+        expect(client.conversationMessages.getPinnedMessages).toHaveBeenCalledWith('42')
+        expect(client.conversationMessages.getMessages).not.toHaveBeenCalled()
+        expect(consoleSpy).toHaveBeenCalledWith('No pinned messages.')
+    })
+
+    it('refuses --pinned with --since', async () => {
+        const client = createClient({})
+        apiMocks.getCommsClient.mockResolvedValue(client)
+        const program = createProgram()
+
+        await expect(
+            program.parseAsync([
+                'node',
+                'tdc',
+                'conversation',
+                'view',
+                '42',
+                '--pinned',
+                '--since',
+                '2026-06-26',
+            ]),
+        ).rejects.toHaveProperty('code', 'CONFLICTING_OPTIONS')
+        expect(client.conversationMessages.getPinnedMessages).not.toHaveBeenCalled()
     })
 })

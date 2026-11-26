@@ -16,7 +16,9 @@ import { colors, formatJson, formatNdjson } from '../../lib/output.js'
 
 export type UnreadOptions = ViewOptions & { workspace?: string }
 
-export type ConversationViewOptions = PaginatedViewOptions
+export type ConversationViewOptions = PaginatedViewOptions & {
+    pinned?: boolean
+}
 
 export type ConversationWithOptions = PaginatedViewOptions & {
     workspace?: string
