@@ -1,3 +1,9 @@
+## [5.3.2](https://github.com/todoist/comms-cli/compare/v5.3.1...v5.3.2) (2026-11-26)
+
+### Bug Fixes
+
+- **deps:** update @todoist/cli-core to 2.0.3 ([#130](https://github.com/todoist/comms-cli/issues/130)) ([a0dfe01](https://github.com/todoist/comms-cli/commit/a0dfe017de04c8d11f83906e6277ccbe5cae2034))
+
 ## [5.3.1](https://github.com/todoist/comms-cli/compare/v5.3.0...v5.3.1) (2026-11-25)
 
 ### Bug Fixes
