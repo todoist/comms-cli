@@ -46,6 +46,12 @@ function createClient({ messageCreator = 1, sessionUserId = 1 } = {}) {
         conversationMessages: {
             getMessage: vi.fn(async (id: string) => createMessageFixture(id, messageCreator)),
             deleteMessage: vi.fn(async () => undefined),
+            pinMessage: vi.fn(async (id: string) => ({
+                ...createMessageFixture(id),
+                pinnedDate: new Date('2026-11-26T15:00:00.000Z'),
+                pinnedBy: 1,
+            })),
+            unpinMessage: vi.fn(async (id: string) => createMessageFixture(id)),
             updateMessage: vi.fn(async (args: { id: string; content: string }) => ({
                 ...createMessageFixture(args.id, messageCreator),
                 content: args.content,
@@ -223,5 +229,53 @@ describe('msg update', () => {
             id: '200',
             content: 'Argument message',
         })
+    })
+})
+
+describe('msg pin and unpin', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it.each([
+        ['pin', 'pinMessage', 'pinned'],
+        ['unpin', 'unpinMessage', 'unpinned'],
+    ] as const)('%s calls conversationMessages.%s', async (verb, method, done) => {
+        const client = createClient()
+        apiMocks.getCommsClient.mockResolvedValue(client)
+        const program = createProgram()
+        const consoleSpy = captureConsole('log')
+
+        await program.parseAsync(['node', 'tdc', 'msg', verb, '200'])
+
+        expect(client.conversationMessages[method]).toHaveBeenCalledWith('200')
+        expect(consoleSpy).toHaveBeenCalledWith(`Message 200 ${done}.`)
+    })
+
+    it('prints id, pinnedDate and pinnedBy with --json', async () => {
+        const client = createClient()
+        apiMocks.getCommsClient.mockResolvedValue(client)
+        const program = createProgram()
+        const consoleSpy = captureConsole('log')
+
+        await program.parseAsync(['node', 'tdc', 'msg', 'pin', '200', '--json'])
+
+        expect(JSON.parse(consoleSpy.mock.calls[0][0])).toEqual({
+            id: '200',
+            pinnedDate: '2026-11-26T15:00:00.000Z',
+            pinnedBy: 1,
+        })
+    })
+
+    it('previews without pinning in --dry-run', async () => {
+        const client = createClient()
+        apiMocks.getCommsClient.mockResolvedValue(client)
+        const program = createProgram()
+        const consoleSpy = captureConsole('log')
+
+        await program.parseAsync(['node', 'tdc', 'msg', 'pin', '200', '--dry-run'])
+
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Would pin message'))
+        expect(client.conversationMessages.pinMessage).not.toHaveBeenCalled()
     })
 })

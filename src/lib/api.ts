@@ -64,6 +64,8 @@ const API_SPINNER_MESSAGES: Record<string, { text: string; color?: 'blue' | 'gre
         'comments.createComment': { text: 'Creating comment...', color: 'green' },
         'comments.updateComment': { text: 'Updating comment...', color: 'yellow' },
         'comments.deleteComment': { text: 'Deleting comment...', color: 'yellow' },
+        'comments.pinComment': { text: 'Pinning comment...', color: 'yellow' },
+        'comments.unpinComment': { text: 'Unpinning comment...', color: 'yellow' },
 
         // Channel operations
         'channels.getChannel': { text: 'Loading channel...', color: 'blue' },
@@ -101,6 +103,8 @@ const API_SPINNER_MESSAGES: Record<string, { text: string; color?: 'blue' | 'gre
         'conversationMessages.createMessage': { text: 'Sending message...', color: 'green' },
         'conversationMessages.updateMessage': { text: 'Updating message...', color: 'yellow' },
         'conversationMessages.deleteMessage': { text: 'Deleting message...', color: 'yellow' },
+        'conversationMessages.pinMessage': { text: 'Pinning message...', color: 'yellow' },
+        'conversationMessages.unpinMessage': { text: 'Unpinning message...', color: 'yellow' },
 
         // Group operations
         'groups.getGroups': { text: 'Loading groups...', color: 'blue' },

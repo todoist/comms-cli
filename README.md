@@ -146,6 +146,8 @@ tdc conversation view <ref>         # view conversation messages
 tdc conversation done <ref> --yes   # archive a conversation
 tdc conversation undone <ref> --yes # unarchive it
 tdc msg view <ref>                  # view a conversation message
+tdc msg pin <ref>                   # pin a message for everyone in the chat (unpin to undo)
+tdc comment pin <ref>               # pin a comment for everyone in the thread (unpin to undo)
 tdc search "keyword"                # search across workspace
 tdc search "keyword" --all          # fetch all result pages
 tdc search "name" --type conversations  # find a titled group chat (whole words)

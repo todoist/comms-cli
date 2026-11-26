@@ -170,6 +170,9 @@ tdc comment update <comment-ref> "content" --json --full  # Include all comment 
 tdc comment delete <comment-ref>                     # Preview comment deletion (requires --yes to execute)
 tdc comment delete <comment-ref> --yes               # Delete a thread comment
 tdc comment delete <comment-ref> --yes --json        # Delete and return status as JSON
+tdc comment pin <comment-ref>                        # Pin a comment for everyone in the thread
+tdc comment pin <comment-ref> --json                 # Pin and return { id, pinnedDate, pinnedBy } as JSON
+tdc comment unpin <comment-ref>                      # Unpin a comment
 ```
 
 ## Conversations (DMs/Groups)
@@ -221,6 +224,9 @@ tdc msg update <ref> "content" --json --full  # Include all message fields
 tdc msg delete <ref>                  # Preview message deletion (requires --yes to execute)
 tdc msg delete <ref> --yes            # Delete a conversation message
 tdc msg delete <ref> --yes --json     # Delete and return status as JSON
+tdc msg pin <ref>                     # Pin a message for everyone in the conversation
+tdc msg pin <ref> --json              # Pin and return { id, pinnedDate, pinnedBy } as JSON
+tdc msg unpin <ref>                   # Unpin a message
 ```
 
 Alias: `tdc message` works the same as `tdc msg`.

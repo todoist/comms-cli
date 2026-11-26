@@ -1,5 +1,6 @@
 import { Command } from 'commander'
 import { deleteMessage } from './delete.js'
+import { pinMessage, unpinMessage } from './pin.js'
 import { updateMessage } from './update.js'
 import { viewMessage } from './view.js'
 
@@ -7,7 +8,7 @@ export function registerMsgCommand(program: Command): void {
     const msg = program
         .command('msg')
         .alias('message')
-        .description('Conversation message operations (view, update, delete)')
+        .description('Conversation message operations (view, update, delete, pin)')
 
     msg.command('view [message-ref]', { isDefault: true })
         .description('View a single conversation message')
@@ -59,4 +60,25 @@ Examples:
   tdc msg delete id:CbS8n2Kp4Qx6Rz9Lm3Va --dry-run`,
         )
         .action(deleteMessage)
+
+    msg.command('pin <message-ref>')
+        .description('Pin a message for everyone in the conversation')
+        .option('--dry-run', 'Show what would happen without executing')
+        .option('--json', 'Output result as JSON')
+        .option('--full', 'Include all fields in JSON output')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tdc msg pin id:CbS8n2Kp4Qx6Rz9Lm3Va
+  tdc msg pin id:CbS8n2Kp4Qx6Rz9Lm3Va --json`,
+        )
+        .action(pinMessage)
+
+    msg.command('unpin <message-ref>')
+        .description('Unpin a message; inverse of pin')
+        .option('--dry-run', 'Show what would happen without executing')
+        .option('--json', 'Output result as JSON')
+        .option('--full', 'Include all fields in JSON output')
+        .action(unpinMessage)
 }
