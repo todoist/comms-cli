@@ -172,6 +172,8 @@ tdc comment delete <comment-ref> --yes               # Delete a thread comment
 tdc comment delete <comment-ref> --yes --json        # Delete and return status as JSON
 tdc comment pin <comment-ref>                        # Pin a comment for everyone in the thread
 tdc comment pin <comment-ref> --json                 # Pin and return { id, pinnedDate, pinnedBy } as JSON
+tdc comment pin <comment-ref> --json --full          # Include all comment fields
+tdc comment pin <comment-ref> --dry-run              # Preview without pinning (unpin takes the same flags)
 tdc comment unpin <comment-ref>                      # Unpin a comment
 ```
 
@@ -226,6 +228,8 @@ tdc msg delete <ref> --yes            # Delete a conversation message
 tdc msg delete <ref> --yes --json     # Delete and return status as JSON
 tdc msg pin <ref>                     # Pin a message for everyone in the conversation
 tdc msg pin <ref> --json              # Pin and return { id, pinnedDate, pinnedBy } as JSON
+tdc msg pin <ref> --json --full       # Include all message fields
+tdc msg pin <ref> --dry-run           # Preview without pinning (unpin takes the same flags)
 tdc msg unpin <ref>                   # Unpin a message
 ```
 

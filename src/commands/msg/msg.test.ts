@@ -273,15 +273,38 @@ describe('msg pin and unpin', () => {
         },
     )
 
-    it('previews without pinning in --dry-run', async () => {
+    it('pin --json --full prints the whole message', async () => {
         const client = createClient()
         apiMocks.getCommsClient.mockResolvedValue(client)
         const program = createProgram()
         const consoleSpy = captureConsole('log')
 
-        await program.parseAsync(['node', 'tdc', 'msg', 'pin', '200', '--dry-run'])
+        await program.parseAsync(['node', 'tdc', 'msg', 'pin', '200', '--json', '--full'])
 
-        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Would pin message'))
-        expect(client.conversationMessages.pinMessage).not.toHaveBeenCalled()
+        expect(JSON.parse(consoleSpy.mock.calls[0][0])).toEqual(
+            expect.objectContaining({
+                id: '200',
+                content: 'Message 200 body',
+                pinnedDate: '2026-11-26T15:00:00.000Z',
+            }),
+        )
     })
+
+    it.each(['pin', 'unpin'] as const)(
+        '%s --dry-run previews without calling the API',
+        async (verb) => {
+            const client = createClient()
+            apiMocks.getCommsClient.mockResolvedValue(client)
+            const program = createProgram()
+            const consoleSpy = captureConsole('log')
+
+            await program.parseAsync(['node', 'tdc', 'msg', verb, '200', '--dry-run'])
+
+            expect(consoleSpy).toHaveBeenCalledWith(
+                expect.stringContaining(`Would ${verb} message`),
+            )
+            expect(client.conversationMessages.pinMessage).not.toHaveBeenCalled()
+            expect(client.conversationMessages.unpinMessage).not.toHaveBeenCalled()
+        },
+    )
 })
