@@ -74,6 +74,7 @@ describe('permissions', () => {
         expect(isMutatingMethod('threads.getUnread')).toBe(false)
         expect(isMutatingMethod('comments.getComment')).toBe(false)
         expect(isMutatingMethod('comments.getComments')).toBe(false)
+        expect(isMutatingMethod('comments.getPinnedComments')).toBe(false)
         expect(isMutatingMethod('channels.getChannel')).toBe(false)
         expect(isMutatingMethod('channels.getChannels')).toBe(false)
         expect(isMutatingMethod('conversations.getConversations')).toBe(false)
@@ -81,6 +82,7 @@ describe('permissions', () => {
         expect(isMutatingMethod('conversations.getUnread')).toBe(false)
         expect(isMutatingMethod('conversationMessages.getMessage')).toBe(false)
         expect(isMutatingMethod('conversationMessages.getMessages')).toBe(false)
+        expect(isMutatingMethod('conversationMessages.getPinnedMessages')).toBe(false)
         expect(isMutatingMethod('inbox.getInbox')).toBe(false)
     })
 

@@ -84,6 +84,34 @@ describe('msg implicit view', () => {
     })
 })
 
+describe('msg view', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('marks a pinned message, and --json carries pinnedDate and pinnedBy', async () => {
+        const client = createClient()
+        const pinned = {
+            ...createMessageFixture('200'),
+            pinnedDate: new Date('2026-11-27T09:00:00.000Z'),
+            pinnedBy: 1,
+        }
+        client.conversationMessages.getMessage.mockResolvedValue(pinned)
+        apiMocks.getCommsClient.mockResolvedValue(client)
+        const consoleSpy = captureConsole('log')
+
+        await createProgram().parseAsync(['node', 'tdc', 'msg', 'view', '200'])
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('(pinned)'))
+
+        consoleSpy.mockClear()
+        await createProgram().parseAsync(['node', 'tdc', 'msg', 'view', '200', '--json'])
+        expect(JSON.parse(consoleSpy.mock.calls[0][0])).toMatchObject({
+            pinnedDate: '2026-11-27T09:00:00.000Z',
+            pinnedBy: 1,
+        })
+    })
+})
+
 describe('msg delete', () => {
     beforeEach(() => {
         vi.clearAllMocks()

@@ -2905,16 +2905,19 @@ describe('thread view --pinned', () => {
         expect(consoleSpy).toHaveBeenCalledWith('No pinned comments.')
     })
 
-    it('refuses --pinned with --unread', async () => {
-        const client = createClient()
-        apiMocks.getCommsClient.mockResolvedValue(client)
-        const program = createProgram()
+    it.each([['--unread'], ['--since', '2026-06-26'], ['--until', '2026-06-26'], ['--limit', '5']])(
+        'refuses --pinned with %s',
+        async (...flag: string[]) => {
+            const client = createClient()
+            apiMocks.getCommsClient.mockResolvedValue(client)
+            const program = createProgram()
 
-        await expect(
-            program.parseAsync(['node', 'tdc', 'thread', 'view', '500', '--pinned', '--unread']),
-        ).rejects.toHaveProperty('code', 'CONFLICTING_OPTIONS')
-        expect(client.comments.getPinnedComments).not.toHaveBeenCalled()
-    })
+            await expect(
+                program.parseAsync(['node', 'tdc', 'thread', 'view', '500', '--pinned', ...flag]),
+            ).rejects.toHaveProperty('code', 'CONFLICTING_OPTIONS')
+            expect(client.comments.getPinnedComments).not.toHaveBeenCalled()
+        },
+    )
 
     it('refuses --pinned with a comment URL', async () => {
         const client = createClient()

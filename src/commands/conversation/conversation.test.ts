@@ -1772,22 +1772,17 @@ describe('conversation view --pinned', () => {
         expect(consoleSpy).toHaveBeenCalledWith('No pinned messages.')
     })
 
-    it('refuses --pinned with --since', async () => {
+    it.each([
+        ['--since', '2026-06-26'],
+        ['--until', '2026-06-26'],
+        ['--limit', '5'],
+    ])('refuses --pinned with %s', async (...flag: string[]) => {
         const client = createClient({})
         apiMocks.getCommsClient.mockResolvedValue(client)
         const program = createProgram()
 
         await expect(
-            program.parseAsync([
-                'node',
-                'tdc',
-                'conversation',
-                'view',
-                '42',
-                '--pinned',
-                '--since',
-                '2026-06-26',
-            ]),
+            program.parseAsync(['node', 'tdc', 'conversation', 'view', '42', '--pinned', ...flag]),
         ).rejects.toHaveProperty('code', 'CONFLICTING_OPTIONS')
         expect(client.conversationMessages.getPinnedMessages).not.toHaveBeenCalled()
     })
