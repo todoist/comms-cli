@@ -3,6 +3,8 @@
 // rebase that only moved the base. Without this, every rebase of a verified branch, and of every
 // branch of a stack, would need verify again before it could push.
 
+import { copyFileSync, existsSync, mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { git } from './git.ts'
 import { readJson, stateDir, writeJson } from './state.ts'
@@ -31,23 +33,57 @@ export function readPassedPatches(root: string): PassedPatch[] {
  * has no `--verbatim`, so every rebase there needs verify again.
  */
 export function branchPatchId(root: string, base: string, commit: string): string | undefined {
-    const diff = git(root, [
-        'diff',
-        '--unified=3',
-        '--diff-algorithm=myers',
-        '--src-prefix=a/',
-        '--dst-prefix=b/',
-        '--full-index',
-        '--no-color',
-        '--no-ext-diff',
-        '--no-textconv',
-        '--no-renames',
-        base,
-        commit,
-    ])
+    return patchIdOf(root, [base, commit])
+}
+
+/** The patch id of `git diff <compared>`, with the diff settings `branchPatchId` describes. */
+function patchIdOf(
+    root: string,
+    compared: string[],
+    env?: Record<string, string>,
+): string | undefined {
+    const diff = git(
+        root,
+        [
+            'diff',
+            '--unified=3',
+            '--diff-algorithm=myers',
+            '--src-prefix=a/',
+            '--dst-prefix=b/',
+            '--full-index',
+            '--no-color',
+            '--no-ext-diff',
+            '--no-textconv',
+            '--no-renames',
+            ...compared,
+        ],
+        { env },
+    )
     if (!diff.ok || !diff.stdout.trim()) return undefined
     const id = git(root, ['patch-id', '--verbatim'], { input: diff.stdout })
     return id.ok ? id.stdout.split(' ')[0] || undefined : undefined
+}
+
+/**
+ * The patch ids of what could be committed next, from `base`: HEAD's changes, what's staged, and
+ * the whole working tree, untracked files included. The working tree is read through a copy of the
+ * index with everything added, so the real index is left as it is.
+ */
+function pendingPatchIds(root: string, base: string): Set<string> {
+    const ids = [branchPatchId(root, base, 'HEAD'), patchIdOf(root, ['--cached', base])]
+    const scratch = mkdtempSync(join(tmpdir(), 'agent-index-'))
+    try {
+        const index = git(root, ['rev-parse', '--path-format=absolute', '--git-path', 'index'])
+        const copy = join(scratch, 'index')
+        const real = index.stdout.trim()
+        if (index.ok && existsSync(real)) copyFileSync(real, copy)
+        const env = { GIT_INDEX_FILE: copy }
+        if (git(root, ['add', '--all'], { env }).ok)
+            ids.push(patchIdOf(root, ['--cached', base], env))
+    } finally {
+        rmSync(scratch, { recursive: true, force: true })
+    }
+    return new Set(ids.filter((id) => id !== undefined))
 }
 
 /**
@@ -69,19 +105,22 @@ export function recordPassedPatch(root: string, base: string, commit: string): v
 }
 
 /**
- * Forgets that the changes `commit` makes since `base` passed, whatever base they passed on: verify
- * is about to check them again, and a run that doesn't pass must not leave them counted as passed.
+ * Forgets that the changes verify is about to check passed, whatever base they passed on, so a run
+ * that doesn't pass can't leave them counted as passed: HEAD's changes since `base`, and the ones a
+ * commit could hold next, staged or not, as after `git reset HEAD~1`. When the record can't be
+ * rewritten it is deleted, and when it can't be deleted either, this throws.
  */
-export function forgetPassedPatch(root: string, base: string, commit: string): void {
+export function forgetPassedChanges(root: string, base: string): void {
+    const patches = readPassedPatches(root)
+    if (patches.length === 0) return
+    const pending = pendingPatchIds(root, base)
+    const kept = patches.filter((patch) => !pending.has(patch.patchId))
+    if (kept.length === patches.length) return
     try {
-        const patchId = branchPatchId(root, base, commit)
-        const patches = readPassedPatches(root)
-        if (patchId === undefined || !patches.some((patch) => patch.patchId === patchId)) return
-        writeJson(patchesPath(root), {
-            patches: patches.filter((patch) => patch.patchId !== patchId),
-        })
+        writeJson(patchesPath(root), { patches: kept })
     } catch {
-        // A record that can't be read or written exempts nothing either.
+        // Losing the other branches' records only means they need verify again after a rebase.
+        rmSync(patchesPath(root), { force: true })
     }
 }
 

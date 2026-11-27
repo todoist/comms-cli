@@ -1,7 +1,9 @@
+import { chmodSync, existsSync } from 'node:fs'
+import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
     branchPatchId,
-    forgetPassedPatch,
+    forgetPassedChanges,
     hasPassedPatch,
     readPassedPatches,
     recordPassedPatch,
@@ -116,11 +118,32 @@ describe.skipIf(!GIT_HAS_VERBATIM_PATCH_ID)('passed patches', () => {
         recordPassedPatch(repo.dir, base(), 'HEAD')
         repo.git(['reset', '--quiet', '--hard', 'HEAD~1'])
 
-        forgetPassedPatch(repo.dir, base(), 'HEAD')
+        forgetPassedChanges(repo.dir, base())
         expect(hasPassedPatch(repo.dir, base(), 'HEAD')).toBe(false)
         // Other changes keep theirs
         expect(readPassedPatches(repo.dir)).toHaveLength(1)
     })
+
+    // root can write a read-only file, so there is no record it fails to rewrite.
+    it.skipIf(process.getuid?.() === 0)(
+        "deletes the record when it can't rewrite it, and throws when it can't delete it",
+        () => {
+            const record = join(repo.dir, '.tmp/agents/verified-patches.json')
+            recordPassedPatch(repo.dir, base(), 'HEAD')
+            chmodSync(record, 0o444)
+            forgetPassedChanges(repo.dir, base())
+            expect(existsSync(record)).toBe(false)
+
+            recordPassedPatch(repo.dir, base(), 'HEAD')
+            chmodSync(record, 0o444)
+            chmodSync(join(repo.dir, '.tmp/agents'), 0o555)
+            try {
+                expect(() => forgetPassedChanges(repo.dir, base())).toThrow(/EACCES/)
+            } finally {
+                chmodSync(join(repo.dir, '.tmp/agents'), 0o755)
+            }
+        },
+    )
 
     it('does not find changes that never passed', () => {
         recordPassedPatch(repo.dir, base(), 'HEAD')

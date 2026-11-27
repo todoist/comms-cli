@@ -319,6 +319,8 @@ describe('pushes it stops before reading them', () => {
     })
 })
 
+// Without `git patch-id --verbatim` (git before 2.39) there is no exemption, and every rebase needs
+// verify again.
 describe.skipIf(!GIT_HAS_VERBATIM_PATCH_ID)('pushes of changes that already passed', () => {
     /** Moves main on with a change to another file, as a merged pull request would. */
     function moveMain(path = 'src/upstream.ts'): void {

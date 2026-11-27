@@ -1,8 +1,8 @@
 import { spawn } from 'node:child_process'
 import { createWriteStream, mkdirSync, readFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
-import { cleanGitEnv, git } from './git.ts'
-import { forgetPassedPatch, recordPassedPatch } from './patches.ts'
+import { cleanGitEnv, resolveCommit } from './git.ts'
+import { forgetPassedChanges, recordPassedPatch } from './patches.ts'
 import { clearVerified, stateDir, writeVerified } from './state.ts'
 import {
     changedCodePaths,
@@ -65,9 +65,8 @@ export async function runVerify(options: VerifyOptions): Promise<VerifyResult> {
     // pass behind, of the tree or of the branch's changes. (A docs-only run returns above: docs
     // are outside the fingerprint, so an earlier pass is still valid.)
     clearVerified(root)
-    const head = git(root, ['rev-parse', 'HEAD'])
-    const commit = head.ok ? head.stdout.trim() : undefined
-    if (commit !== undefined && base !== undefined) forgetPassedPatch(root, base, commit)
+    const commit = resolveCommit(root, 'HEAD')
+    if (base !== undefined) forgetPassedChanges(root, base)
     const before = snapshot(root)
 
     const logDir = join(stateDir(root), 'logs')
