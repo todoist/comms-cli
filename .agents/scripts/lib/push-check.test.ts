@@ -87,6 +87,41 @@ describe('pushes it checks', () => {
         expect(check(command).decision).toBe('allow')
     })
 
+    it('stops a commit and push in one command when the commit can leave out what verify saw', () => {
+        repo.git(['switch', '--quiet', '-c', 'together'])
+        repo.write('src/a.ts', 'export const a = 2\n')
+        repo.write('src/new.ts', 'export const n = 1\n')
+        markVerified()
+        // `-a` leaves out the untracked file; a plain commit, the unstaged edit too.
+        for (const command of [
+            'git commit -am "x" && git push',
+            'git commit -m "x" && git push',
+            'git add src/a.ts && git commit -m x && git push',
+            'git add -A && git commit -m x src/a.ts && git push',
+            'git add -A && git commit -p && git push',
+            'git commit -m x && git add -A && git push',
+            'git commit -am x && gh pr create --fill',
+        ]) {
+            expect(denial(command), command).toContain('Stage everything in the same command')
+        }
+        // Staged whole first, the commit holds what verify saw.
+        for (const command of [
+            'git add -A && git commit -m x && git push',
+            'git add . && git commit -m x && git push',
+            'cd src && git add --all && git commit -qm x && git push',
+            'git add :/ && git commit -m x && git push',
+        ]) {
+            expect(check(command).decision, command).toBe('allow')
+        }
+        // With nothing untracked, `-a` takes every change, and a plain commit what's staged.
+        rmSync(join(repo.dir, 'src/new.ts'))
+        markVerified()
+        expect(check('git commit -am x && git push').decision).toBe('allow')
+        expect(denial('git commit -m x && git push')).toContain('Stage everything')
+        repo.git(['add', 'src/a.ts'])
+        expect(check('git commit -m x && git push').decision).toBe('allow')
+    })
+
     it('stops a new pull request for unverified code, including one for another branch', () => {
         commitOnBranch('pull-request', 'src/feature.ts')
         expect(denial('gh pr create --fill')).toContain(

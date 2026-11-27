@@ -7,11 +7,12 @@
 import { existsSync, realpathSync } from 'node:fs'
 import { join } from 'node:path'
 import { branchBase, defaultBranchRef, findRepoRoot, git, resolveCommit } from './git.ts'
-import { findTargets } from './push-targets.ts'
+import { findTargets, type PushTarget, type Staged } from './push-targets.ts'
 import { readVerified } from './state.ts'
 import {
     changedSince,
     changeNeedsChecks,
+    classify,
     codeFingerprint,
     commitChanges,
     needsChecks,
@@ -33,7 +34,12 @@ type Checkout = {
     defaultRef: () => string | undefined
     /** The working tree's fingerprint, read once however many sources the command pushes. */
     tree: () => string
-    committedFirst: boolean
+    /** What `git add` has staged of the whole checkout so far in the command. */
+    staged: Staged | undefined
+    /** The last commit the command makes before it pushes, and what it takes of the tree. */
+    committed: { stages: Staged | undefined; partial: boolean } | undefined
+    /** Whether that commit holds the whole working tree, read once. */
+    holdsTree: () => boolean
     movedFirst: boolean
     /** Branches the command makes from what's checked out before it pushes them. */
     created: Set<string>
@@ -47,10 +53,19 @@ type Checkout = {
 /**
  * What one push source sends: `ok`; `every` (every branch, a wildcard, or what git's settings or
  * `xargs` pick); `unknown` (a branch named by a variable, or one that doesn't exist); `moved` (what's
- * checked out changes first); `unverified`; `dirty` (unverified, and the working tree holds more than
- * the pushed commit); or `other` (unverified, and not what's checked out).
+ * checked out changes first); `partial` (the same command commits first, and the commit can leave
+ * out part of the working tree); `unverified`; `dirty` (unverified, and the working tree holds more
+ * than the pushed commit); or `other` (unverified, and not what's checked out).
  */
-type SourceResult = 'ok' | 'every' | 'unknown' | 'moved' | 'unverified' | 'dirty' | 'other'
+type SourceResult =
+    | 'ok'
+    | 'every'
+    | 'unknown'
+    | 'moved'
+    | 'partial'
+    | 'unverified'
+    | 'dirty'
+    | 'other'
 
 export function checkCommand({
     root,
@@ -99,8 +114,16 @@ export function checkCommand({
             checkout = openCheckout(path, notes)
             checkouts.set(path, checkout)
         }
-        if (target.kind === 'commit') checkout.committedFirst = true
-        else if (target.kind === 'move') checkout.movedFirst = true
+        if (target.kind === 'commit') {
+            checkout.committed = {
+                stages: widest(checkout.staged, target.stages),
+                partial: target.partial === true,
+            }
+        } else if (target.kind === 'stage') {
+            if (stagesWholeCheckout(target, path)) {
+                checkout.staged = widest(checkout.staged, target.stages)
+            }
+        } else if (target.kind === 'move') checkout.movedFirst = true
         else if (target.kind === 'create') {
             for (const name of target.sources) {
                 if (target.reset) checkout.reset.set(name, target.from)
@@ -146,18 +169,58 @@ function guardedCheckouts(root: string): (path: string) => boolean {
 function openCheckout(root: string, notes: string[]): Checkout {
     let tree: string | undefined
     let defaultRef: { ref: string | undefined } | undefined
-    return {
+    let holdsTree: boolean | undefined
+    const checkout: Checkout = {
         root,
         notes,
         head: resolveCommit(root, 'HEAD'),
         verified: readVerified(root)?.fingerprint,
         defaultRef: () => (defaultRef ??= { ref: defaultBranchRef(root) }).ref,
         tree: () => (tree ??= codeFingerprint(snapshot(root))),
-        committedFirst: false,
+        staged: undefined,
+        committed: undefined,
+        holdsTree: () => (holdsTree ??= commitHoldsTree(checkout)),
         movedFirst: false,
         created: new Set(),
         reset: new Map(),
     }
+    return checkout
+}
+
+/** `all` takes in more than `tracked`. */
+function widest(a: Staged | undefined, b: Staged | undefined): Staged | undefined {
+    return a === 'all' || b === 'all' ? 'all' : (a ?? b)
+}
+
+/** Whether a `git add` takes the whole checkout: no paths, `:/`, or `.` from its top folder. */
+function stagesWholeCheckout(target: PushTarget, root: string): boolean {
+    if (target.sources.length === 0) return true
+    return target.sources.some(
+        (path) =>
+            path === ':/' ||
+            ((path === '.' || path === './') &&
+                target.dir !== null &&
+                realPath(target.dir) === root),
+    )
+}
+
+/**
+ * Whether the commit the command makes before it pushes holds the whole working tree, as verify
+ * saw it: everything staged first, or nothing left out of what it takes. Files only CI reads don't
+ * count, since verify records nothing for them.
+ */
+function commitHoldsTree(checkout: Checkout): boolean {
+    const { root, committed } = checkout
+    if (committed === undefined || committed.partial) return false
+    // What `git add` staged before the commit, and what the commit itself takes.
+    const { stages } = committed
+    if (stages === 'all') return true
+    const counts = (path: string) => classify(path) !== 'unchecked'
+    const untracked = git(root, ['ls-files', '-z', '--others', '--exclude-standard'])
+    if (!untracked.ok || untracked.stdout.split('\0').filter(Boolean).some(counts)) return false
+    if (stages === 'tracked') return true
+    const unstaged = git(root, ['diff', '--no-ext-diff', '--name-only', '-z'])
+    return unstaged.ok && !unstaged.stdout.split('\0').filter(Boolean).some(counts)
 }
 
 /** The real path of the checkout a folder is in, or undefined when it isn't in one. */
@@ -236,8 +299,12 @@ function checkSource(checkout: Checkout, source: string, kind: 'push' | 'pr'): S
             if (commit === undefined) return 'ok'
         }
     }
-    // The same command commits first, so what it pushes is the working tree.
-    const fromTree = checkout.committedFirst && commit === head
+    // The same command commits first, so what it pushes is the working tree, when the commit takes
+    // all of it.
+    const fromTree = checkout.committed !== undefined && commit === head
+    if (fromTree && !checkout.holdsTree()) {
+        return onlyUncheckedChanges(checkout, undefined) ? 'ok' : 'partial'
+    }
     const fingerprint = fromTree ? checkout.tree() : codeFingerprint(snapshotCommit(root, commit))
     if (fingerprint === checkout.verified) return 'ok'
     if (onlyUncheckedChanges(checkout, fromTree ? undefined : commit)) return 'ok'
@@ -280,6 +347,14 @@ function denyReason(found: Set<SourceResult>, onlyPullRequests: boolean): string
             'This pushes a branch named by a shell variable, or one that does not exist, so the ' +
                 "push check can't tell what it sends. Name each branch instead: `git push origin " +
                 '<branch>`.',
+        )
+    }
+    if (found.has('partial')) {
+        paragraphs.push(
+            'This commits and pushes in one command, but the commit can leave out changes verify ' +
+                "checked: files git doesn't track yet, changes the command doesn't stage, or the " +
+                'paths it leaves out. Stage everything in the same command (`git add -A && git ' +
+                'commit …`), or commit first and run the push as a command of its own.',
         )
     }
     if (found.has('moved')) {

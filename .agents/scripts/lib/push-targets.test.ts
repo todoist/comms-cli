@@ -195,6 +195,37 @@ describe('findTargets', () => {
         ])
     })
 
+    it('reads what a commit and `git add` take from the working tree', () => {
+        const taken = (command: string) =>
+            findTargets(command, '/w').map(({ kind, sources, stages, partial }) => ({
+                kind,
+                sources,
+                stages,
+                partial,
+            }))
+        const commit = { kind: 'commit', sources: [] }
+        expect(taken('git commit -am x; git commit --all -m x; git commit -ma')).toEqual([
+            { ...commit, stages: 'tracked' },
+            { ...commit, stages: 'tracked' },
+            commit,
+        ])
+        expect(
+            taken(
+                'git commit -m x a.ts; git commit -p; git commit -- a.ts; git commit -F - --amend',
+            ),
+        ).toEqual([
+            { ...commit, partial: true },
+            { ...commit, partial: true },
+            { ...commit, partial: true },
+            commit,
+        ])
+        expect(taken('git add -A; git add .; git add -u; git add -p; git add -n .')).toEqual([
+            { kind: 'stage', sources: [], stages: 'all' },
+            { kind: 'stage', sources: ['.'], stages: 'all' },
+            { kind: 'stage', sources: [], stages: 'tracked' },
+        ])
+    })
+
     it('marks a push with no refspec as one git settings decide', () => {
         expect(findTargets('git push upstream', '/w')).toEqual([
             { kind: 'push', dir: '/w', sources: ['HEAD'], implicit: true, remote: 'upstream' },

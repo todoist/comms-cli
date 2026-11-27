@@ -10,7 +10,10 @@ import { readCommands, type ShellItem } from './shell-commands.ts'
  * - `push`, `pr`: what a push or a new pull request sends, as git names it in `sources` (`HEAD`, a
  *   branch, `refs/tags/v1`); `*` when it can't be told from the command: every branch, a wildcard,
  *   what git's push settings pick, or arguments `xargs` adds.
- * - `commit`: a commit, so a later push from that folder sends the working tree.
+ * - `commit`: a commit, so a later push from that folder sends what it stages. `stages: 'tracked'`
+ *   for `git commit -a`, and `partial` when it takes only some changes: named paths, or `--patch`.
+ * - `stage`: `git add`, of the paths in `sources` (none: the whole checkout), with `stages: 'all'`
+ *   when it takes untracked files too, or `'tracked'` for `git add -u`.
  * - `create`: a branch made from what's checked out, named in `sources`. `reset` when the command
  *   points the branch there even if it exists (`git switch -C`, `git checkout -B`, `git branch -f`),
  *   with `from` naming another commit when `git branch -f` gives a start point.
@@ -20,14 +23,19 @@ import { readCommands, type ShellItem } from './shell-commands.ts'
  *   when the command names none).
  */
 export type PushTarget = {
-    kind: 'push' | 'pr' | 'commit' | 'create' | 'move'
+    kind: 'push' | 'pr' | 'commit' | 'stage' | 'create' | 'move'
     dir: string | null
     sources: string[]
     implicit?: boolean
     remote?: string | null
     reset?: boolean
     from?: string
+    stages?: Staged
+    partial?: boolean
 }
+
+/** What a `git add` or `git commit` takes from the working tree. */
+export type Staged = 'all' | 'tracked'
 
 /** Shell words before a command that run the command after them. */
 const KEYWORDS = new Set(['if', 'then', 'else', 'elif', 'do', 'while', 'until', '!', '{'])
@@ -212,7 +220,13 @@ function readGit(
     }
     const subcommand = words[i] ?? ''
     const args = words.slice(i + 1)
-    if (subcommand === 'commit') targets.push({ kind: 'commit', dir: inDir, sources: [] })
+    if (subcommand === 'commit') {
+        targets.push({ kind: 'commit', dir: inDir, sources: [], ...readCommit(args) })
+    }
+    if (subcommand === 'add') {
+        const stage = readAdd(args)
+        if (stage) targets.push({ kind: 'stage', dir: inDir, ...stage })
+    }
     const created = createdBranch(subcommand, args)
     if (created !== undefined) {
         const { name, ...how } = created
@@ -223,6 +237,86 @@ function readGit(
     if (subcommand !== 'push') return
     const push = readPush(args, configured, extraArgs)
     if (push) targets.push({ ...push, dir: inDir })
+}
+
+/** `git commit` options whose value is the next word, unless given with `=`. */
+const COMMIT_VALUE_OPTIONS = new Set([
+    '--message',
+    '--file',
+    '--reuse-message',
+    '--reedit-message',
+    '--template',
+    '--author',
+    '--date',
+    '--fixup',
+    '--squash',
+    '--cleanup',
+    '--trailer',
+    '--pathspec-from-file',
+])
+
+/** Whether `git commit <args>` takes every tracked change (`-a`), or only some (paths, `--patch`). */
+function readCommit(args: string[]): { stages?: Staged; partial?: boolean } {
+    let all = false
+    let partial = false
+    for (let i = 0; i < args.length; i++) {
+        const word = args[i] as string
+        if (word === '--') {
+            partial ||= i + 1 < args.length
+            break
+        }
+        if (word.startsWith('--')) {
+            const flag = word.split('=', 1)[0] as string
+            if (flag === '--all') all = true
+            else if (['--patch', '--interactive', '--pathspec-from-file'].includes(flag)) {
+                partial = true
+            }
+            if (!word.includes('=') && COMMIT_VALUE_OPTIONS.has(flag)) i++
+        } else if (word.startsWith('-') && word.length > 1) {
+            // A cluster such as `-am`: `-m`, `-F`, `-C`, `-c` and `-t` take the rest of it, or the
+            // next word, as their value; `-S` and `-u` take only the rest.
+            for (let k = 1; k < word.length; k++) {
+                const letter = word[k] as string
+                if (letter === 'a') all = true
+                else if (letter === 'p') partial = true
+                else if ('mFCct'.includes(letter)) {
+                    if (k === word.length - 1) i++
+                    break
+                } else if ('Su'.includes(letter)) break
+            }
+        } else partial = true
+    }
+    return { ...(all ? { stages: 'tracked' as const } : {}), ...(partial ? { partial } : {}) }
+}
+
+/**
+ * What `git add <args>` stages: the paths it names (none means the whole checkout), and whether it
+ * takes untracked files too. Undefined when it stages nothing whole: a dry run, hunks picked by
+ * hand, or paths from a file.
+ */
+function readAdd(args: string[]): { sources: string[]; stages: Staged } | undefined {
+    let stages: Staged | undefined
+    const paths: string[] = []
+    for (let i = 0; i < args.length; i++) {
+        const word = args[i] as string
+        if (word === '--') {
+            paths.push(...args.slice(i + 1))
+            break
+        }
+        if (['-A', '--all', '--no-ignore-removal'].includes(word)) stages = 'all'
+        else if (['-u', '--update'].includes(word)) stages ??= 'tracked'
+        else if (
+            /^(-[npieN]|--(dry-run|patch|interactive|edit|intent-to-add|refresh|pathspec-from-file)(=.*)?)$/.test(
+                word,
+            )
+        ) {
+            return undefined
+        } else if (word === '--chmod') i++
+        else if (!word.startsWith('-')) paths.push(word)
+    }
+    // `git add <paths>` takes untracked files under them too.
+    if (paths.length > 0) return { sources: paths, stages: stages ?? 'all' }
+    return stages ? { sources: [], stages } : undefined
 }
 
 type CreatedBranch = { name: string; reset?: true; from?: string }
