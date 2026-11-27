@@ -1,3 +1,9 @@
+## [5.5.0](https://github.com/todoist/comms-cli/compare/v5.4.0...v5.5.0) (2026-11-27)
+
+### Features
+
+- add tdc comment pin/unpin and tdc msg pin/unpin ([#132](https://github.com/todoist/comms-cli/issues/132)) ([62b4fae](https://github.com/todoist/comms-cli/commit/62b4faed33f295ddcc7e49abc6f1aaf19774a1bb))
+
 ## [5.4.0](https://github.com/todoist/comms-cli/compare/v5.3.3...v5.4.0) (2026-11-27)
 
 ### Features
