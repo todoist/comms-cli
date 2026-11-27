@@ -38,6 +38,7 @@ come from `@todoist/cli-core`.
 │                         # published, unlike scripts/
 ├─ .claude/skills/        # Links to .agents/skills/, where Claude Code finds them
 ├─ .claude/settings.json  # Push check hook (.codex/hooks.json for Codex)
+├─ .pi/extensions/        # Push check for Pi (agent-guard.ts), tested from .agents/scripts/
 ├─ docs/agents.md         # How the agent tooling fits together
 ├─ AGENTS.md              # Prescriptive rules (definition of done, build cmds, JSON flag,
 │                         # skill-sync, errors)
