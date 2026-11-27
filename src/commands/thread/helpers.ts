@@ -7,7 +7,7 @@ import { isAccessible } from '../../lib/global-args.js'
 import { readStdinLines } from '../../lib/input.js'
 import { renderMarkdown } from '../../lib/markdown.js'
 import type { MutationOptions, StdinOptions } from '../../lib/options.js'
-import { colors, formatJson, pluralize } from '../../lib/output.js'
+import { colors, formatJson, pinnedBadge, pluralize } from '../../lib/output.js'
 import { assertChannelIsPublic } from '../../lib/public-channels.js'
 import { partitionNotifyIds, resolveThreadId } from '../../lib/refs.js'
 
@@ -31,6 +31,7 @@ export interface CommentLike {
     creator: number
     posted: Date
     content: string
+    pinnedDate?: Date | null
 }
 
 export async function printComment(
@@ -40,7 +41,9 @@ export async function printComment(
 ): Promise<void> {
     const author = colors.author(userMap.get(comment.creator) || `user:${comment.creator}`)
     const time = colors.timestamp(formatRelativeDate(comment.posted))
-    console.log(`${author}  ${time}  ${colors.timestamp(`id:${comment.id}`)}`)
+    console.log(
+        `${author}  ${time}${pinnedBadge(comment.pinnedDate)}  ${colors.timestamp(`id:${comment.id}`)}`,
+    )
     console.log(raw ? comment.content : await renderMarkdown(comment.content))
     console.log('')
 }

@@ -95,6 +95,7 @@ function createComment(id: number | string, objIndex: number) {
 function createClient({
     thread = createThreadFixture(500),
     comments = [] as ReturnType<typeof createComment>[],
+    pinnedComments = [] as ReturnType<typeof createComment>[],
     unreadThreads = [] as Array<{
         threadId: string
         channelId: string
@@ -156,6 +157,7 @@ function createClient({
         },
         comments: {
             getComments: vi.fn(async (_args: unknown) => comments),
+            getPinnedComments: vi.fn(async (_threadId: string) => pinnedComments),
             getComment: vi.fn(
                 async (id: string) => comments.find((c) => c.id === id) ?? comments[0],
             ),
@@ -2863,5 +2865,114 @@ describe('thread --stdin', () => {
             'Usage: tdc thread mark-read',
         )
         expect(client.threads.markRead).not.toHaveBeenCalled()
+    })
+})
+
+describe('thread view --pinned', () => {
+    beforeEach(() => {
+        clearWorkspaceUserCache()
+        vi.clearAllMocks()
+        configMocks.getConfig.mockResolvedValue({})
+        groupsMock.getWorkspaceGroups.mockResolvedValue([])
+        groupsMock.getWorkspaceUsers.mockResolvedValue([])
+    })
+
+    it('lists the pinned comments instead of the latest ones', async () => {
+        const client = createClient({
+            comments: [createComment(1, 1), createComment(2, 2), createComment(3, 1)],
+            pinnedComments: [createComment(1, 1), createComment(2, 2)],
+            users: { 1: { id: 1, fullName: 'Alice' }, 2: { id: 2, fullName: 'Bob' } },
+        })
+        apiMocks.getCommsClient.mockResolvedValue(client)
+        const program = createProgram()
+        const consoleSpy = captureConsole('log')
+
+        await program.parseAsync(['node', 'tdc', 'thread', 'view', '500', '--pinned'])
+
+        expect(client.comments.getPinnedComments).toHaveBeenCalledWith('500')
+        expect(client.comments.getComments).not.toHaveBeenCalled()
+        expect(consoleSpy).toHaveBeenCalledWith('--- 2 pinned comments ---')
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Comment 1'))
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Comment 2'))
+    })
+
+    it('says when nothing is pinned', async () => {
+        const client = createClient({ comments: [createComment(1, 1)] })
+        apiMocks.getCommsClient.mockResolvedValue(client)
+        const program = createProgram()
+        const consoleSpy = captureConsole('log')
+
+        await program.parseAsync(['node', 'tdc', 'thread', 'view', '500', '--pinned'])
+
+        expect(consoleSpy).toHaveBeenCalledWith('No pinned comments.')
+    })
+
+    it.each([['--unread'], ['--since', '2026-06-26'], ['--until', '2026-06-26'], ['--limit', '5']])(
+        'refuses --pinned with %s',
+        async (...flag: string[]) => {
+            const client = createClient()
+            apiMocks.getCommsClient.mockResolvedValue(client)
+            const program = createProgram()
+
+            await expect(
+                program.parseAsync(['node', 'tdc', 'thread', 'view', '500', '--pinned', ...flag]),
+            ).rejects.toHaveProperty('code', 'CONFLICTING_OPTIONS')
+            expect(client.comments.getPinnedComments).not.toHaveBeenCalled()
+        },
+    )
+
+    it('refuses --pinned with a comment URL', async () => {
+        const client = createClient()
+        apiMocks.getCommsClient.mockResolvedValue(client)
+        const program = createProgram()
+
+        await expect(
+            program.parseAsync([
+                'node',
+                'tdc',
+                'thread',
+                'view',
+                'https://comms.todoist.com/a/12345/ch/CeRAj1WU3YFhsTejuePLW/t/CeRAj1WU3YFhsVZGDyPr9/c/CeRAj1WU3YFhsY6fUxMhj',
+                '--pinned',
+            ]),
+        ).rejects.toHaveProperty('code', 'CONFLICTING_OPTIONS')
+        expect(client.comments.getComment).not.toHaveBeenCalled()
+    })
+
+    it('marks pinned comments in the normal view and in --json', async () => {
+        const pinned = {
+            ...createComment(1, 1),
+            pinnedDate: new Date('2026-11-27T09:00:00.000Z'),
+            pinnedBy: 1,
+        }
+        const unpinned = { ...createComment(2, 2), pinnedDate: null, pinnedBy: null }
+        const client = createClient({
+            comments: [pinned, unpinned],
+            users: { 1: { id: 1, fullName: 'Alice' }, 2: { id: 2, fullName: 'Bob' } },
+        })
+        apiMocks.getCommsClient.mockResolvedValue(client)
+        const consoleSpy = captureConsole('log')
+
+        await createProgram().parseAsync(['node', 'tdc', 'thread', 'view', '500'])
+
+        const pinnedLines = consoleSpy.mock.calls
+            .map((call) => String(call[0]))
+            .filter((line) => line.includes('(pinned)'))
+        expect(pinnedLines).toHaveLength(1)
+        expect(pinnedLines[0]).toContain('id:1')
+
+        consoleSpy.mockClear()
+        await createProgram().parseAsync(['node', 'tdc', 'thread', 'view', '500', '--json'])
+
+        const { comments } = JSON.parse(consoleSpy.mock.calls[0][0])
+        expect(
+            comments.map((c: { pinnedDate: string | null; pinnedBy: number | null }) => [
+                c.pinnedDate,
+                c.pinnedBy,
+            ]),
+        ).toEqual([
+            ['2026-11-27T09:00:00.000Z', 1],
+            [null, null],
+        ])
     })
 })

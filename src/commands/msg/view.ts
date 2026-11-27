@@ -2,7 +2,7 @@ import { getCommsClient } from '../../lib/api.js'
 import { formatRelativeDate } from '../../lib/dates.js'
 import { renderMarkdown } from '../../lib/markdown.js'
 import type { ViewOptions } from '../../lib/options.js'
-import { colors, formatJson, formatNdjson } from '../../lib/output.js'
+import { colors, formatJson, formatNdjson, pinnedBadge } from '../../lib/output.js'
 import { resolveMessageId } from '../../lib/refs.js'
 
 export async function viewMessage(ref: string, options: ViewOptions): Promise<void> {
@@ -30,7 +30,9 @@ export async function viewMessage(ref: string, options: ViewOptions): Promise<vo
 
     const author = colors.author(creatorName)
     const time = colors.timestamp(formatRelativeDate(message.posted))
-    console.log(`${author}  ${time}  ${colors.timestamp(`id:${message.id}`)}`)
+    console.log(
+        `${author}  ${time}${pinnedBadge(message.pinnedDate)}  ${colors.timestamp(`id:${message.id}`)}`,
+    )
     console.log(options.raw ? message.content : await renderMarkdown(message.content))
     console.log('')
 }

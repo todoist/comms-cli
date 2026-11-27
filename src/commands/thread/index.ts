@@ -21,6 +21,7 @@ export function registerThreadCommand(program: Command): void {
         .option('--comment <id>', 'Show only a specific comment')
         .option('--unread', 'Show only unread comments (with original post for context)')
         .option('--context <n>', 'Include N read comments before unread (use with --unread)')
+        .option('--pinned', 'Show only the pinned comments')
         .option('--limit <n>', 'Max comments to show (default: 50)')
         .option('--since <date>', 'Comments newer than')
         .option('--until <date>', 'Comments older than')

@@ -92,10 +92,11 @@ tdc inbox --ids-only              # Output only thread IDs, one per line
 
 \`\`\`bash
 tdc thread <thread-ref>           # View thread (shorthand for view)
-tdc thread view <thread-ref>      # View thread with comments
+tdc thread view <thread-ref>      # View thread with comments; pinned ones show "(pinned)", and --json has pinnedDate/pinnedBy (null when not pinned)
 tdc thread view <ref> --comment <id> # View a specific comment
 tdc thread view <url-with-/c/id>  # Comment ID extracted from URL
 tdc thread view <ref> --unread    # Show only unread comments
+tdc thread view <ref> --pinned    # Show only the pinned comments
 tdc thread view <ref> --context 3 # Include 3 read comments before unread
 tdc thread view <ref> --limit 20  # Max comments to show (default: 50; the header says when it left some out)
 tdc thread view <ref> --since <date> # Comments newer than date
@@ -196,7 +197,8 @@ tdc conversation list --limit 20 --json    # Cap rows and output as JSON
 tdc conversation list --ids-only           # Output only conversation IDs
 tdc conversation unread --ids-only         # Output only unread conversation IDs
 tdc conversation <conversation-ref>        # View conversation (shorthand for view)
-tdc conversation view <conversation-ref>   # View conversation messages
+tdc conversation view <conversation-ref>   # View conversation messages; pinned ones are marked the same way
+tdc conversation view <conversation-ref> --pinned   # Show only the pinned messages
 tdc conversation with <user-ref>           # Find your 1:1 DM with a user
 tdc conversation with <user-ref> --snippet # Include the latest message preview
 tdc conversation with <user-ref> --include-groups # List any conversations with that user

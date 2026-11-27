@@ -2,6 +2,7 @@ import type { CommsApi } from '@todoist/comms-sdk'
 import chalk from 'chalk'
 import { buildUserNameMap, getCommsClient } from '../../lib/api.js'
 import { formatRelativeDate } from '../../lib/dates.js'
+import { CliError } from '../../lib/errors.js'
 import { renderMarkdown } from '../../lib/markdown.js'
 import { toDate, type PaginatedViewOptions } from '../../lib/options.js'
 import { closedThreadBadge, colors, formatJson, pluralize } from '../../lib/output.js'
@@ -13,6 +14,7 @@ type ViewOptions = PaginatedViewOptions & {
     comment?: string
     unread?: boolean
     context?: string
+    pinned?: boolean
 }
 
 // getComments stops at the limit, so say when that left comments out. A date filter makes the
@@ -87,6 +89,19 @@ export async function viewThread(ref: string, options: ViewOptions): Promise<voi
     } else {
         commentId = urlCommentId
     }
+    if (
+        options.pinned &&
+        (commentId !== undefined ||
+            options.unread ||
+            options.since ||
+            options.until ||
+            options.limit)
+    ) {
+        throw new CliError(
+            'CONFLICTING_OPTIONS',
+            '--pinned lists every pinned comment, so it cannot be used with --comment, a comment URL, --unread, --since, --until or --limit',
+        )
+    }
     const client = await getCommsClient()
 
     if (commentId !== undefined) {
@@ -97,12 +112,14 @@ export async function viewThread(ref: string, options: ViewOptions): Promise<voi
 
     const [thread, comments] = await Promise.all([
         client.threads.getThread(threadId),
-        client.comments.getComments({
-            threadId,
-            newerThan: toDate(options.since),
-            olderThan: toDate(options.until),
-            limit,
-        }),
+        options.pinned
+            ? client.comments.getPinnedComments(threadId)
+            : client.comments.getComments({
+                  threadId,
+                  newerThan: toDate(options.since),
+                  olderThan: toDate(options.until),
+                  limit,
+              }),
     ])
 
     await assertChannelIsPublic(thread.channelId, thread.workspaceId)
@@ -221,12 +238,14 @@ export async function viewThread(ref: string, options: ViewOptions): Promise<voi
             const isDateFiltered = options.since !== undefined || options.until !== undefined
             console.log(
                 chalk.dim(
-                    formatCommentsHeader(
-                        comments.length,
-                        thread.commentCount,
-                        limit,
-                        isDateFiltered,
-                    ),
+                    options.pinned
+                        ? `--- ${comments.length} pinned ${pluralize(comments.length, 'comment')} ---`
+                        : formatCommentsHeader(
+                              comments.length,
+                              thread.commentCount,
+                              limit,
+                              isDateFiltered,
+                          ),
                 ),
             )
             console.log('')
@@ -234,6 +253,8 @@ export async function viewThread(ref: string, options: ViewOptions): Promise<voi
             for (const comment of comments) {
                 await printComment(comment, userMap, options.raw ?? false)
             }
+        } else if (options.pinned) {
+            console.log('No pinned comments.')
         }
     }
 }

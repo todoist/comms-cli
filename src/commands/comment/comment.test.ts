@@ -103,6 +103,28 @@ describe('comment view', () => {
         expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Comment 300'))
     })
 
+    it('marks a pinned comment, and --json carries pinnedDate and pinnedBy', async () => {
+        const client = createClient()
+        const pinned = {
+            ...createCommentFixture('300'),
+            pinnedDate: new Date('2026-11-27T09:00:00.000Z'),
+            pinnedBy: 1,
+        }
+        client.comments.getComment.mockResolvedValue(pinned)
+        apiMocks.getCommsClient.mockResolvedValue(client)
+        const consoleSpy = captureConsole('log')
+
+        await createProgram().parseAsync(['node', 'tdc', 'comment', 'view', '300'])
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('(pinned)'))
+
+        consoleSpy.mockClear()
+        await createProgram().parseAsync(['node', 'tdc', 'comment', 'view', '300', '--json'])
+        expect(JSON.parse(consoleSpy.mock.calls[0][0])).toMatchObject({
+            pinnedDate: '2026-11-27T09:00:00.000Z',
+            pinnedBy: 1,
+        })
+    })
+
     it('outputs JSON with --json', async () => {
         const client = createClient()
         apiMocks.getCommsClient.mockResolvedValue(client)
