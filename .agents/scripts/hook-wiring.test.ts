@@ -89,6 +89,10 @@ describe.each(AGENTS)('$name', ({ config, env }) => {
         expect(decision(pushed.stdout)).toBe('deny')
         expect(decision(run(bash('gh pr create --fill')).stdout)).toBe('deny')
         expect(decision(run(bash('gh pr\tcreate --fill')).stdout)).toBe('deny')
+        // Split across lines: JSON writes the line break as `\n`, which the filter's `*` takes in.
+        expect(decision(run(bash('gh pr \\\n  create --fill')).stdout)).toBe('deny')
+        expect(decision(run(bash('gh pr\\\n  new')).stdout)).toBe('deny')
+        expect(decision(run(bash('git \\\n  push origin HEAD')).stdout)).toBe('deny')
 
         markVerified(repo.dir)
         expect(run(bash('git push -u origin HEAD'))).toEqual({ status: 0, stdout: '', stderr: '' })
