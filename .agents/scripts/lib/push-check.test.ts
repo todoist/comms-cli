@@ -145,6 +145,12 @@ describe('pushes it checks', () => {
         expect(denial('git push')).toContain('push settings pick')
         config('--unset', 'push.default')
 
+        // Settings given in the command count the same, and a refspec there wins over them.
+        expect(denial('git -c push.default=matching push')).toContain('push settings pick')
+        const inline =
+            'git -c push.default=matching -c remote.origin.push=refs/heads/*:refs/heads/*'
+        expect(check(`${inline} push origin configured`).decision).toBe('allow')
+
         // With one remote, a bare push goes there, whatever its name.
         repo.git(['remote', 'rename', 'origin', 'upstream'])
         config('remote.upstream.push', 'refs/heads/main:refs/heads/main')

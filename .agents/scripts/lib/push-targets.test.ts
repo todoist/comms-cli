@@ -134,6 +134,9 @@ describe('findTargets', () => {
         ['git -c remote.pushDefault=other push', [['push', '/w', '*']]],
         ['git --config-env=branch.a.pushRemote=R push', [['push', '/w', '*']]],
         ['git -c core.editor=vi push', [['push', '/w', 'HEAD']]],
+        // A refspec in the command wins over them.
+        ['git -c push.default=matching push origin main', [['push', '/w', 'main']]],
+        ['git -c remote.origin.push=refs/heads/a push origin b', [['push', '/w', 'b']]],
         [
             'git push --mirror; git push --branches',
             [

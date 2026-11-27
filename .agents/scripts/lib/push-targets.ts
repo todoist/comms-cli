@@ -188,7 +188,7 @@ function readGit(
     let i = start
     let inDir = dir
     // An inline `push.*`, `remote.*` or `branch.*` setting can change what a push with no refspec
-    // sends, or where.
+    // sends, or where. A refspec in the command wins over them, as in git.
     let configured = false
     for (; i < words.length; i++) {
         const word = words[i] as string
@@ -215,7 +215,7 @@ function readGit(
         targets.push({ kind: 'move', dir: inDir, sources: [] })
     }
     if (subcommand !== 'push') return
-    const push = readPush(args, configured || extraArgs)
+    const push = readPush(args, configured, extraArgs)
     if (push) targets.push({ ...push, dir: inDir })
 }
 
@@ -248,7 +248,15 @@ function isMove(subcommand: string, args: string[]): boolean {
     return true
 }
 
-function readPush(args: string[], unclear: boolean): Omit<PushTarget, 'dir'> | undefined {
+/**
+ * What `git push <args>` sends. `configured`: inline settings decide what a push with no refspec
+ * sends. `extraArgs`: `xargs` adds arguments, which may be refspecs, that the command doesn't show.
+ */
+function readPush(
+    args: string[],
+    configured: boolean,
+    extraArgs: boolean,
+): Omit<PushTarget, 'dir'> | undefined {
     let remote: string | null = null
     // A remote named as an argument wins over `--repo`, as in git.
     let repoOption: string | null = null
@@ -270,7 +278,9 @@ function readPush(args: string[], unclear: boolean): Omit<PushTarget, 'dir'> | u
         else refspecs.push(word)
     }
     remote ??= repoOption
-    if (every || (unclear && refspecs.length === 0)) return { kind: 'push', sources: ['*'] }
+    if (every || ((configured || extraArgs) && refspecs.length === 0)) {
+        return { kind: 'push', sources: ['*'] }
+    }
     if (refspecs.length === 0) {
         // With --tags and no refspec, it pushes tags alone, which hold no new code.
         if (tags) return undefined
@@ -295,7 +305,7 @@ function readPush(args: string[], unclear: boolean): Omit<PushTarget, 'dir'> | u
     }
     if (sources.length === 0) return undefined
     // `xargs` may add more refspecs than the command shows.
-    return { kind: 'push', sources: unclear ? ['*'] : sources }
+    return { kind: 'push', sources: extraArgs ? ['*'] : sources }
 }
 
 /**
