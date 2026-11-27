@@ -68,14 +68,27 @@ function runGuard(payload: Record<string, unknown>): Promise<GuardOutput> {
         }
         const timer = setTimeout(() => {
             child.kill()
-            finish({ systemMessage: 'agent-guard: tool-start timed out, so it allowed the action' })
+            finish({
+                systemMessage:
+                    `agent-guard: tool-start timed out, so it allowed the action. ${stderr.trim()}`.trim(),
+            })
         }, TIMEOUT_MS)
         child.stdout.on('data', (chunk: Buffer) => (stdout += chunk.toString()))
         child.stderr.on('data', (chunk: Buffer) => (stderr += chunk.toString()))
         child.on('error', (error) => {
             finish({ systemMessage: `agent-guard: tool-start failed to run: ${error.message}` })
         })
-        child.on('close', () => {
+        child.on('close', (code, signal) => {
+            // A guard that can't even load, such as one with a syntax error, prints nothing on
+            // stdout and says why on stderr.
+            if (code !== 0) {
+                const how = signal ? `was stopped by ${signal}` : `exited with code ${code}`
+                finish({
+                    systemMessage:
+                        `agent-guard: tool-start ${how}, so it allowed the action. ${stderr.trim()}`.trim(),
+                })
+                return
+            }
             try {
                 finish(stdout.trim() ? (JSON.parse(stdout) as GuardOutput) : {})
             } catch {

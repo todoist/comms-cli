@@ -1,5 +1,5 @@
-import { mkdirSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { chmodSync, existsSync } from 'node:fs'
+import { delimiter, join } from 'node:path'
 import { afterEach, beforeEach, expect, it } from 'vitest'
 import { createTempRepo, markVerified, type TempRepo } from './lib/test-repo.ts'
 
@@ -46,15 +46,14 @@ function setUp(target: TempRepo, { withGuard = true } = {}): void {
 
 function drive(
     event: { toolName: string; input: unknown },
-    options: { root?: string; cwd?: string; env?: Record<string, string> } = {},
+    options: { target?: TempRepo; cwd?: string; env?: Record<string, string> } = {},
 ): Driven {
-    const root = options.root ?? repo.dir
-    const cwd = options.cwd ?? root
-    const eventFile = join(root, '.tmp/event.json')
-    mkdirSync(join(root, '.tmp'), { recursive: true })
-    writeFileSync(eventFile, JSON.stringify(event))
-    const extension = join(root, '.pi/extensions/agent-guard.ts')
-    const result = repo.run(
+    const target = options.target ?? repo
+    const cwd = options.cwd ?? target.dir
+    target.write('.tmp/event.json', JSON.stringify(event))
+    const eventFile = join(target.dir, '.tmp/event.json')
+    const extension = join(target.dir, '.pi/extensions/agent-guard.ts')
+    const result = target.run(
         process.execPath,
         ['--no-warnings', '--input-type=module', '-e', DRIVER, extension, cwd, eventFile],
         { cwd, env: options.env },
@@ -64,6 +63,24 @@ function drive(
 }
 
 const bash = (command: string) => ({ toolName: 'bash', input: { command } })
+
+/**
+ * A `node` first on PATH that notes each start before it runs the real one. The driver runs node
+ * by its full path, so only the extension's own `spawn('node', …)` of the guard goes through it.
+ */
+function watchNode(): { env: Record<string, string>; started: () => boolean } {
+    const bin = join(repo.dir, '.tmp/bin')
+    const log = join(bin, 'started')
+    repo.write(
+        '.tmp/bin/node',
+        `#!/bin/sh\necho started >> '${log}'\nexec '${process.execPath}' "$@"\n`,
+    )
+    chmodSync(join(bin, 'node'), 0o755)
+    return {
+        env: { PATH: `${bin}${delimiter}${process.env.PATH}` },
+        started: () => existsSync(log),
+    }
+}
 
 const commitOnBranch = (branch: string, path: string) => repo.commitOnBranch(branch, path)
 
@@ -89,25 +106,40 @@ it("blocks an unverified push through tool_call with the guard's reason", () => 
 it('lets the push run once verify has passed on it', () => {
     commitOnBranch('feature', 'src/b.ts')
     markVerified(repo.dir)
-    expect(drive(bash('git push -u origin HEAD'))).toEqual({ result: null, notes: [], stderr: '' })
+    const node = watchNode()
+    expect(drive(bash('git push -u origin HEAD'), { env: node.env })).toEqual({
+        result: null,
+        notes: [],
+        stderr: '',
+    })
+    expect(node.started()).toBe(true)
 })
 
-it('leaves every other tool call alone', () => {
+it('leaves every other tool call alone, without starting the guard', () => {
     commitOnBranch('feature', 'src/b.ts')
+    const node = watchNode()
     for (const event of [
         bash('ls'),
         bash('git status && npm test'),
         { toolName: 'read', input: { path: 'push.md' } },
+        { toolName: 'grep', input: { command: 'git push' } },
         { toolName: 'bash', input: null },
     ]) {
-        expect(drive(event), JSON.stringify(event)).toEqual({ result: null, notes: [], stderr: '' })
+        expect(drive(event, { env: node.env }), JSON.stringify(event)).toEqual({
+            result: null,
+            notes: [],
+            stderr: '',
+        })
     }
+    expect(node.started()).toBe(false)
 })
 
 it('does nothing with DISABLE_AGENT_GUARD=1', () => {
     commitOnBranch('feature', 'src/b.ts')
-    const off = drive(bash('git push'), { env: { DISABLE_AGENT_GUARD: '1' } })
+    const node = watchNode()
+    const off = drive(bash('git push'), { env: { ...node.env, DISABLE_AGENT_GUARD: '1' } })
     expect(off).toEqual({ result: null, notes: [], stderr: '' })
+    expect(node.started()).toBe(false)
 })
 
 it('skips a checkout without the guard, such as an older branch, without a word', () => {
@@ -117,11 +149,13 @@ it('skips a checkout without the guard, such as an older branch, without a word'
         older.write('src/b.ts', 'export const b = 1\n')
         older.git(['add', '.'])
         older.git(['commit', '--quiet', '-m', 'b'])
-        expect(drive(bash('git push'), { root: older.dir })).toEqual({
+        const node = watchNode()
+        expect(drive(bash('git push'), { target: older, env: node.env })).toEqual({
             result: null,
             notes: [],
             stderr: '',
         })
+        expect(node.started()).toBe(false)
     } finally {
         older.cleanup()
     }
@@ -151,6 +185,16 @@ it('allows the call when the extension itself fails, which Pi would treat as a b
     const failed = drive(bash('cd "$REPO" && git push'), { env: { BROKEN_UI: '1' } })
     expect(failed.result).toBeNull()
     expect(failed.stderr).toContain('the Pi extension failed, so it allowed the action')
+})
+
+it("notes a guard that can't run at all, such as one with a syntax error", () => {
+    commitOnBranch('feature', 'src/b.ts')
+    repo.write('.agents/scripts/guard.ts', 'this is not valid typescript (\n')
+    const broken = drive(bash('git push'))
+    expect(broken.result).toBeNull()
+    expect(broken.notes.join('\n')).toMatch(
+        /tool-start exited with code 1, so it allowed the action\. [\s\S]*SyntaxError/,
+    )
 })
 
 it('allows the call when the guard exits without reading its input or printing JSON', () => {
