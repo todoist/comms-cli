@@ -1,3 +1,9 @@
+## [5.6.0](https://github.com/todoist/comms-cli/compare/v5.5.0...v5.6.0) (2026-11-27)
+
+### Features
+
+- show pinned comments and messages in tdc ([#133](https://github.com/todoist/comms-cli/issues/133)) ([34af860](https://github.com/todoist/comms-cli/commit/34af8607058abc0b4a2ae8ec8d58b7a52233acb7))
+
 ## [5.5.0](https://github.com/todoist/comms-cli/compare/v5.4.0...v5.5.0) (2026-11-27)
 
 ### Features
