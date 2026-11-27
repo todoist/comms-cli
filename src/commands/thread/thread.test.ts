@@ -2892,6 +2892,8 @@ describe('thread view --pinned', () => {
         expect(client.comments.getPinnedComments).toHaveBeenCalledWith('500')
         expect(client.comments.getComments).not.toHaveBeenCalled()
         expect(consoleSpy).toHaveBeenCalledWith('--- 2 pinned comments ---')
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Comment 1'))
+        expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Comment 2'))
     })
 
     it('says when nothing is pinned', async () => {
