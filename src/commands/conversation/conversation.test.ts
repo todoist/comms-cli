@@ -1791,4 +1791,42 @@ describe('conversation view --pinned', () => {
         ).rejects.toHaveProperty('code', 'CONFLICTING_OPTIONS')
         expect(client.conversationMessages.getPinnedMessages).not.toHaveBeenCalled()
     })
+
+    it('marks pinned messages in the normal view and in --json', async () => {
+        const conversation = createConversation(42, [1], '2026-03-08T10:00:00.000Z')
+        const pinned = {
+            ...message('99', 'Pinned plan'),
+            pinnedDate: new Date('2026-11-27T09:00:00.000Z'),
+            pinnedBy: 1,
+        }
+        const unpinned = { ...message('98', 'Latest'), pinnedDate: null, pinnedBy: null }
+        const client = createClient({
+            activeConversations: [conversation],
+            messagesByConversation: { '42': [unpinned, pinned] },
+        })
+        apiMocks.getCommsClient.mockResolvedValue(client)
+        const consoleSpy = captureConsole('log')
+
+        await createProgram().parseAsync(['node', 'tdc', 'conversation', 'view', '42'])
+
+        const pinnedLines = consoleSpy.mock.calls
+            .map((call) => String(call[0]))
+            .filter((line) => line.includes('(pinned)'))
+        expect(pinnedLines).toHaveLength(1)
+        expect(pinnedLines[0]).toContain('id:99')
+
+        consoleSpy.mockClear()
+        await createProgram().parseAsync(['node', 'tdc', 'conversation', 'view', '42', '--json'])
+
+        const { messages } = JSON.parse(consoleSpy.mock.calls[0][0])
+        expect(
+            messages.map((m: { pinnedDate: string | null; pinnedBy: number | null }) => [
+                m.pinnedDate,
+                m.pinnedBy,
+            ]),
+        ).toEqual([
+            [null, null],
+            ['2026-11-27T09:00:00.000Z', 1],
+        ])
+    })
 })

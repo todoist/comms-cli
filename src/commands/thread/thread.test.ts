@@ -2933,4 +2933,41 @@ describe('thread view --pinned', () => {
         ).rejects.toHaveProperty('code', 'CONFLICTING_OPTIONS')
         expect(client.comments.getComment).not.toHaveBeenCalled()
     })
+
+    it('marks pinned comments in the normal view and in --json', async () => {
+        const pinned = {
+            ...createComment(1, 1),
+            pinnedDate: new Date('2026-11-27T09:00:00.000Z'),
+            pinnedBy: 1,
+        }
+        const unpinned = { ...createComment(2, 2), pinnedDate: null, pinnedBy: null }
+        const client = createClient({
+            comments: [pinned, unpinned],
+            users: { 1: { id: 1, fullName: 'Alice' }, 2: { id: 2, fullName: 'Bob' } },
+        })
+        apiMocks.getCommsClient.mockResolvedValue(client)
+        const consoleSpy = captureConsole('log')
+
+        await createProgram().parseAsync(['node', 'tdc', 'thread', 'view', '500'])
+
+        const pinnedLines = consoleSpy.mock.calls
+            .map((call) => String(call[0]))
+            .filter((line) => line.includes('(pinned)'))
+        expect(pinnedLines).toHaveLength(1)
+        expect(pinnedLines[0]).toContain('id:1')
+
+        consoleSpy.mockClear()
+        await createProgram().parseAsync(['node', 'tdc', 'thread', 'view', '500', '--json'])
+
+        const { comments } = JSON.parse(consoleSpy.mock.calls[0][0])
+        expect(
+            comments.map((c: { pinnedDate: string | null; pinnedBy: number | null }) => [
+                c.pinnedDate,
+                c.pinnedBy,
+            ]),
+        ).toEqual([
+            ['2026-11-27T09:00:00.000Z', 1],
+            [null, null],
+        ])
+    })
 })

@@ -5,7 +5,7 @@ import { formatRelativeDate } from '../../lib/dates.js'
 import { CliError } from '../../lib/errors.js'
 import { renderMarkdown } from '../../lib/markdown.js'
 import { toDate } from '../../lib/options.js'
-import { colors, filterEntityFields } from '../../lib/output.js'
+import { colors, filterEntityFields, pinnedBadge } from '../../lib/output.js'
 import { resolveConversationId } from '../../lib/refs.js'
 import { buildConversationTitle, type ConversationViewOptions } from './helpers.js'
 
@@ -102,7 +102,9 @@ export async function viewConversation(
     for (const message of messages) {
         const author = colors.author(userMap.get(message.creator) || `user:${message.creator}`)
         const time = colors.timestamp(formatRelativeDate(message.posted))
-        console.log(`${author}  ${time}  ${colors.timestamp(`id:${message.id}`)}`)
+        console.log(
+            `${author}  ${time}${pinnedBadge(message.pinnedDate)}  ${colors.timestamp(`id:${message.id}`)}`,
+        )
         console.log(options.raw ? message.content : await renderMarkdown(message.content))
         console.log('')
     }

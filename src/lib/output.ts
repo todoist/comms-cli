@@ -21,6 +21,10 @@ export function closedThreadBadge(closed: boolean | null | undefined): string {
     return closed ? chalk.dim(' (closed)') : ''
 }
 
+export function pinnedBadge(pinnedDate: Date | null | undefined): string {
+    return pinnedDate ? chalk.dim(' (pinned)') : ''
+}
+
 const THREAD_ESSENTIAL_FIELDS = [
     'id',
     'title',
@@ -45,6 +49,8 @@ const COMMENT_ESSENTIAL_FIELDS = [
     'threadId',
     'posted',
     'reactions',
+    'pinnedDate',
+    'pinnedBy',
 ] as const
 
 const CONVERSATION_ESSENTIAL_FIELDS = [
@@ -64,6 +70,8 @@ const MESSAGE_ESSENTIAL_FIELDS = [
     'conversationId',
     'posted',
     'reactions',
+    'pinnedDate',
+    'pinnedBy',
 ] as const
 
 const WORKSPACE_ESSENTIAL_FIELDS = ['id', 'name', 'creator', 'plan'] as const
