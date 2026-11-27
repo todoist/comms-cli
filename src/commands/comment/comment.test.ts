@@ -52,6 +52,12 @@ function createClient({ commentCreator = 1, sessionUserId = 1 } = {}) {
                 content: args.content,
             })),
             deleteComment: vi.fn(async () => undefined),
+            pinComment: vi.fn(async (id: string) => ({
+                ...createCommentFixture(id),
+                pinnedDate: new Date('2026-11-26T15:00:00.000Z'),
+                pinnedBy: 1,
+            })),
+            unpinComment: vi.fn(async (id: string) => createCommentFixture(id)),
         },
         users: {
             getSessionUser: vi.fn(async () => ({ id: sessionUserId, fullName: 'Me' })),
@@ -337,4 +343,101 @@ describe('comment delete', () => {
 
         expect(client.comments.deleteComment).not.toHaveBeenCalled()
     })
+})
+
+describe('comment pin and unpin', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it.each([
+        ['pin', 'pinComment', 'pinned'],
+        ['unpin', 'unpinComment', 'unpinned'],
+    ] as const)('%s calls comments.%s', async (verb, method, done) => {
+        const client = createClient()
+        apiMocks.getCommsClient.mockResolvedValue(client)
+        const program = createProgram()
+        const consoleSpy = captureConsole('log')
+
+        await program.parseAsync(['node', 'tdc', 'comment', verb, '300'])
+
+        expect(client.comments[method]).toHaveBeenCalledWith('300')
+        expect(consoleSpy).toHaveBeenCalledWith(`Comment 300 ${done}.`)
+    })
+
+    it.each([
+        ['pin', '2026-11-26T15:00:00.000Z', 1],
+        ['unpin', null, null],
+    ] as const)(
+        '%s --json prints id, pinnedDate and pinnedBy',
+        async (verb, pinnedDate, pinnedBy) => {
+            const client = createClient()
+            apiMocks.getCommsClient.mockResolvedValue(client)
+            const program = createProgram()
+            const consoleSpy = captureConsole('log')
+
+            await program.parseAsync(['node', 'tdc', 'comment', verb, '300', '--json'])
+
+            expect(JSON.parse(consoleSpy.mock.calls[0][0])).toEqual({
+                id: '300',
+                pinnedDate,
+                pinnedBy,
+            })
+        },
+    )
+
+    it('pin --json --full prints the whole comment', async () => {
+        const client = createClient()
+        apiMocks.getCommsClient.mockResolvedValue(client)
+        const program = createProgram()
+        const consoleSpy = captureConsole('log')
+
+        await program.parseAsync(['node', 'tdc', 'comment', 'pin', '300', '--json', '--full'])
+
+        expect(JSON.parse(consoleSpy.mock.calls[0][0])).toEqual(
+            expect.objectContaining({
+                id: '300',
+                content: 'Comment 300',
+                pinnedDate: '2026-11-26T15:00:00.000Z',
+            }),
+        )
+    })
+
+    it.each(['pin', 'unpin'] as const)(
+        '%s --dry-run previews without calling the API',
+        async (verb) => {
+            const client = createClient()
+            apiMocks.getCommsClient.mockResolvedValue(client)
+            const program = createProgram()
+            const consoleSpy = captureConsole('log')
+
+            await program.parseAsync(['node', 'tdc', 'comment', verb, '300', '--dry-run'])
+
+            expect(consoleSpy).toHaveBeenCalledWith(
+                expect.stringContaining(`Would ${verb} comment`),
+            )
+            expect(client.comments.pinComment).not.toHaveBeenCalled()
+            expect(client.comments.unpinComment).not.toHaveBeenCalled()
+        },
+    )
+
+    it.each(['pin', 'unpin', 'pin --dry-run'])(
+        'refuses a comment in a private channel: %s',
+        async (command) => {
+            const { assertChannelIsPublic } = await import('../../lib/public-channels.js')
+            vi.mocked(assertChannelIsPublic).mockRejectedValueOnce(new Error('channel is private'))
+            const client = createClient()
+            apiMocks.getCommsClient.mockResolvedValue(client)
+            const program = createProgram()
+            const consoleSpy = captureConsole('log')
+            const [verb, ...flags] = command.split(' ')
+
+            await expect(
+                program.parseAsync(['node', 'tdc', 'comment', verb, '300', ...flags]),
+            ).rejects.toThrow('channel is private')
+            expect(client.comments.pinComment).not.toHaveBeenCalled()
+            expect(client.comments.unpinComment).not.toHaveBeenCalled()
+            expect(consoleSpy).not.toHaveBeenCalled()
+        },
+    )
 })

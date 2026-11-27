@@ -1,12 +1,13 @@
 import { Command } from 'commander'
 import { deleteComment } from './delete.js'
+import { pinComment, unpinComment } from './pin.js'
 import { updateComment } from './update.js'
 import { viewComment } from './view.js'
 
 export function registerCommentCommand(program: Command): void {
     const comment = program
         .command('comment')
-        .description('Thread comment operations (view, update, delete)')
+        .description('Thread comment operations (view, update, delete, pin)')
 
     comment
         .command('view [comment-ref]', { isDefault: true })
@@ -61,4 +62,34 @@ Examples:
   tdc comment delete id:CbM8n2Kp4Qx6Rz9Lm3Va --dry-run`,
         )
         .action(deleteComment)
+
+    comment
+        .command('pin <comment-ref>')
+        .description('Pin a comment for everyone in the thread')
+        .option('--dry-run', 'Show what would happen without executing')
+        .option('--json', 'Output result as JSON')
+        .option('--full', 'Include all fields in JSON output')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tdc comment pin id:CbM8n2Kp4Qx6Rz9Lm3Va
+  tdc comment pin id:CbM8n2Kp4Qx6Rz9Lm3Va --json`,
+        )
+        .action(pinComment)
+
+    comment
+        .command('unpin <comment-ref>')
+        .description('Unpin a comment; inverse of pin')
+        .option('--dry-run', 'Show what would happen without executing')
+        .option('--json', 'Output result as JSON')
+        .option('--full', 'Include all fields in JSON output')
+        .addHelpText(
+            'after',
+            `
+Examples:
+  tdc comment unpin id:CbM8n2Kp4Qx6Rz9Lm3Va
+  tdc comment unpin id:CbM8n2Kp4Qx6Rz9Lm3Va --json`,
+        )
+        .action(unpinComment)
 }
