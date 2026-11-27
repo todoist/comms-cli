@@ -1,3 +1,9 @@
+## [5.4.0](https://github.com/todoist/comms-cli/compare/v5.3.3...v5.4.0) (2026-11-27)
+
+### Features
+
+- **thread:** add --silent to thread rename ([#131](https://github.com/todoist/comms-cli/issues/131)) ([23f40cb](https://github.com/todoist/comms-cli/commit/23f40cb4e02765a3d05767923316f3baa027770e))
+
 ## [5.3.3](https://github.com/todoist/comms-cli/compare/v5.3.2...v5.3.3) (2026-11-27)
 
 ### Bug Fixes
