@@ -180,6 +180,32 @@ describe('pushes it checks', () => {
         expect(check('git switch -c made && git push -u origin made').decision).toBe('allow')
     })
 
+    it('checks a branch the command resets by what it points it at, not what it held', () => {
+        // On its own, `copy` holds main's code and needs no verify.
+        repo.git(['branch', 'copy'])
+        commitOnBranch('feature', 'src/b.ts')
+        for (const command of [
+            'git switch -C copy && git push origin copy',
+            'git checkout -B copy && git push origin copy',
+            'git branch -f copy && git push origin copy',
+        ]) {
+            expect(denial(command), command).toContain('npm run verify')
+        }
+        markVerified()
+        expect(check('git switch -C copy && git push origin copy').decision).toBe('allow')
+
+        repo.git(['switch', '--quiet', '-c', 'other', 'main'])
+        repo.write('src/other.ts', 'export const o = 1\n')
+        repo.git(['add', '.'])
+        repo.git(['commit', '--quiet', '-m', 'other'])
+        repo.git(['switch', '--quiet', 'feature'])
+        expect(denial('git branch -f copy other && git push origin copy')).toContain(
+            'npm run verify',
+        )
+        expect(check('git branch -f copy feature && git push origin copy').decision).toBe('allow')
+        expect(denial('git branch -f copy "$B" && git push origin copy')).toMatch(/can't tell/)
+    })
+
     it('stops a push on a branch that shares no history with main, as verify records a pass there', () => {
         repo.git(['switch', '--quiet', '--orphan', 'alone'])
         repo.write('docs/notes.md', '# notes\n')

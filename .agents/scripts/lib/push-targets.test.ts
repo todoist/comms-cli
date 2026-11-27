@@ -109,6 +109,15 @@ describe('findTargets', () => {
             ],
         ],
         [
+            'git switch -C a && git checkout -B b; git branch -f c && git branch --force d main',
+            [
+                ['create', '/w', 'a'],
+                ['create', '/w', 'b'],
+                ['create', '/w', 'c'],
+                ['create', '/w', 'd'],
+            ],
+        ],
+        [
             'git switch main; git switch -c d origin/main; git checkout x; gh pr checkout 1',
             [
                 ['move', '/w', ''],
@@ -166,6 +175,24 @@ describe('findTargets', () => {
     it('takes the remote from an argument over --repo, as git does', () => {
         expect(findTargets('git push --repo=origin backup', '/w')[0]?.remote).toBe('backup')
         expect(findTargets('git push --repo origin', '/w')[0]?.remote).toBe('origin')
+    })
+
+    it('marks a branch the command points somewhere even when it exists', () => {
+        const created = (command: string) =>
+            findTargets(command, '/w').map(({ sources, reset, from }) => ({ sources, reset, from }))
+        expect(created('git switch -c a; git checkout -b b; git branch c')).toEqual([
+            { sources: ['a'] },
+            { sources: ['b'] },
+            { sources: ['c'] },
+        ])
+        expect(
+            created('git switch -C a; git checkout -B b; git branch -f c; git branch -f d x'),
+        ).toEqual([
+            { sources: ['a'], reset: true },
+            { sources: ['b'], reset: true },
+            { sources: ['c'], reset: true },
+            { sources: ['d'], reset: true, from: 'x' },
+        ])
     })
 
     it('marks a push with no refspec as one git settings decide', () => {

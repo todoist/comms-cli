@@ -37,6 +37,11 @@ type Checkout = {
     movedFirst: boolean
     /** Branches the command makes from what's checked out before it pushes them. */
     created: Set<string>
+    /**
+     * Branches the command points at what's checked out, or at another commit, even when they
+     * exist, so what they held before doesn't count.
+     */
+    reset: Map<string, string | undefined>
 }
 
 /**
@@ -97,7 +102,10 @@ export function checkCommand({
         if (target.kind === 'commit') checkout.committedFirst = true
         else if (target.kind === 'move') checkout.movedFirst = true
         else if (target.kind === 'create') {
-            for (const name of target.sources) checkout.created.add(name)
+            for (const name of target.sources) {
+                if (target.reset) checkout.reset.set(name, target.from)
+                else checkout.created.add(name)
+            }
         } else {
             // With no refspec, git's push settings can send other branches than HEAD.
             const sources =
@@ -148,6 +156,7 @@ function openCheckout(root: string, notes: string[]): Checkout {
         committedFirst: false,
         movedFirst: false,
         created: new Set(),
+        reset: new Map(),
     }
 }
 
@@ -209,15 +218,23 @@ function checkSource(checkout: Checkout, source: string, kind: 'push' | 'pr'): S
     if (source.includes('$')) return 'unknown'
 
     const { root, notes, head } = checkout
-    let commit = resolveCommit(root, source)
-    if (commit === undefined) {
-        if (checkout.created.has(source)) commit = head
-        else if (kind === 'pr') {
-            // It may exist only on the remote, which no local check can vouch for either way.
-            notes.push(`can't find ${source}, so the pull request isn't checked`)
-            return 'ok'
-        } else return 'unknown'
-        if (commit === undefined) return 'ok'
+    let commit: string | undefined
+    if (checkout.reset.has(source)) {
+        // The command points the branch here before it pushes, whatever it held before.
+        const from = checkout.reset.get(source)
+        commit = from === undefined ? head : resolveCommit(root, from)
+        if (commit === undefined) return from === undefined ? 'ok' : 'unknown'
+    } else {
+        commit = resolveCommit(root, source)
+        if (commit === undefined) {
+            if (checkout.created.has(source)) commit = head
+            else if (kind === 'pr') {
+                // It may exist only on the remote, which no local check can vouch for either way.
+                notes.push(`can't find ${source}, so the pull request isn't checked`)
+                return 'ok'
+            } else return 'unknown'
+            if (commit === undefined) return 'ok'
+        }
     }
     // The same command commits first, so what it pushes is the working tree.
     const fromTree = checkout.committedFirst && commit === head

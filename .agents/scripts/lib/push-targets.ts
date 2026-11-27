@@ -11,7 +11,9 @@ import { readCommands, type ShellItem } from './shell-commands.ts'
  *   branch, `refs/tags/v1`); `*` when it can't be told from the command: every branch, a wildcard,
  *   what git's push settings pick, or arguments `xargs` adds.
  * - `commit`: a commit, so a later push from that folder sends the working tree.
- * - `create`: a branch made from what's checked out, named in `sources`.
+ * - `create`: a branch made from what's checked out, named in `sources`. `reset` when the command
+ *   points the branch there even if it exists (`git switch -C`, `git checkout -B`, `git branch -f`),
+ *   with `from` naming another commit when `git branch -f` gives a start point.
  * - `move`: a command that changes what's checked out, such as `git switch` or `git rebase`.
  * - `dir`: the folder it runs in, or null when the command doesn't say, as after `cd "$REPO"`.
  * - `implicit`: a push with no refspec, so git's settings decide what it sends, to `remote` (null
@@ -23,6 +25,8 @@ export type PushTarget = {
     sources: string[]
     implicit?: boolean
     remote?: string | null
+    reset?: boolean
+    from?: string
 }
 
 /** Shell words before a command that run the command after them. */
@@ -210,8 +214,10 @@ function readGit(
     const args = words.slice(i + 1)
     if (subcommand === 'commit') targets.push({ kind: 'commit', dir: inDir, sources: [] })
     const created = createdBranch(subcommand, args)
-    if (created !== undefined) targets.push({ kind: 'create', dir: inDir, sources: [created] })
-    else if (MOVES.has(subcommand) && isMove(subcommand, args)) {
+    if (created !== undefined) {
+        const { name, ...how } = created
+        targets.push({ kind: 'create', dir: inDir, sources: [name], ...how })
+    } else if (MOVES.has(subcommand) && isMove(subcommand, args)) {
         targets.push({ kind: 'move', dir: inDir, sources: [] })
     }
     if (subcommand !== 'push') return
@@ -219,12 +225,25 @@ function readGit(
     if (push) targets.push({ ...push, dir: inDir })
 }
 
-/** The branch `git switch -c`, `git checkout -b` or `git branch` makes from what's checked out. */
-function createdBranch(subcommand: string, args: string[]): string | undefined {
+type CreatedBranch = { name: string; reset?: true; from?: string }
+
+/**
+ * The branch `git switch -c`, `git checkout -b` or `git branch` makes from what's checked out, and
+ * whether it's reset there even when it exists: `git switch -C`, `git checkout -B` or `git branch
+ * -f`, which can also name another start point.
+ */
+function createdBranch(subcommand: string, args: string[]): CreatedBranch | undefined {
     const operands = args.filter((word) => !word.startsWith('-'))
     if (subcommand === 'branch') {
-        // `git branch name` alone; with a start point, or any option, it isn't what's checked out
-        return args.length === 1 && operands.length === 1 ? operands[0] : undefined
+        const options = args.filter((word) => word.startsWith('-'))
+        const [name, from] = operands
+        if (name === undefined || operands.length > 2) return undefined
+        if (options.length > 0 && options.every((word) => word === '-f' || word === '--force')) {
+            return { name, reset: true, ...(from !== undefined ? { from } : {}) }
+        }
+        // `git branch name` alone; with a start point, or any other option, it isn't what's
+        // checked out
+        return args.length === 1 ? { name } : undefined
     }
     const flags =
         subcommand === 'switch' ? ['-c', '-C', '--create', '--force-create'] : ['-b', '-B']
@@ -234,7 +253,9 @@ function createdBranch(subcommand: string, args: string[]): string | undefined {
     const name = args[at + 1]
     // A start point after the name means the new branch, and HEAD, move there.
     const after = args.slice(at + 2).filter((word) => !word.startsWith('-'))
-    return name !== undefined && after.length === 0 ? name : undefined
+    if (name === undefined || after.length > 0) return undefined
+    const reset = ['-C', '--force-create', '-B'].includes(args[at] as string)
+    return reset ? { name, reset } : { name }
 }
 
 /** Whether a git command that can change what's checked out does here. */
