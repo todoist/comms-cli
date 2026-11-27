@@ -1,4 +1,4 @@
-import { rmSync, symlinkSync, utimesSync } from 'node:fs'
+import { chmodSync, rmSync, symlinkSync, utimesSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createTempRepo, type TempRepo } from './test-repo.ts'
@@ -60,6 +60,19 @@ describe('snapshot', () => {
         repo.git(['add', '--all'])
         expect(snapshot(repo.dir)).toEqual(unstaged)
     })
+
+    // root reads a file whatever its mode, so there is no unreadable file to make.
+    it.skipIf(process.getuid?.() === 0)(
+        "fails on a file it can't read, rather than leave it out",
+        () => {
+            chmodSync(join(repo.dir, 'src/a.ts'), 0o000)
+            try {
+                expect(() => snapshot(repo.dir)).toThrow(/EACCES/)
+            } finally {
+                chmodSync(join(repo.dir, 'src/a.ts'), 0o644)
+            }
+        },
+    )
 
     it('sees an executable bit change', () => {
         const before = codeFingerprint(snapshot(repo.dir))

@@ -31,9 +31,12 @@ function hashPath(path: string): string | undefined {
         if (stat.isSymbolicLink()) return `link:${blobId(Buffer.from(readlinkSync(path)))}`
         if (stat.isDirectory()) return 'dir' // a nested repository, listed but not entered
         return `${stat.mode & 0o111 ? 'x' : '-'}:${blobId(readFileSync(path))}`
-    } catch {
-        // Gone, or went away while being read.
-        return undefined
+    } catch (error) {
+        // Gone, or went away while being read. Any other failure, such as a file it can't read,
+        // must not pass for a deletion.
+        const code = (error as NodeJS.ErrnoException)?.code
+        if (code === 'ENOENT' || code === 'ENOTDIR') return undefined
+        throw error
     }
 }
 
