@@ -222,6 +222,10 @@ Examples:
     thread
         .command('rename <thread-ref> <title>')
         .description('Rename a thread (change its title)')
+        .option(
+            '--silent',
+            'Skip the "changed the title" comment, so the thread is not marked unread or moved up',
+        )
         .option('--dry-run', 'Show what would happen without executing')
         .option('--json', 'Output result as JSON')
         .option('--full', 'Include all fields in JSON output')

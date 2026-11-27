@@ -4,10 +4,12 @@ import { formatJson, printDryRun } from '../../lib/output.js'
 import { assertChannelIsPublic } from '../../lib/public-channels.js'
 import { resolveThreadId } from '../../lib/refs.js'
 
+type RenameOptions = MutationOptions & { silent?: boolean }
+
 export async function renameThread(
     ref: string,
     title: string,
-    options: MutationOptions,
+    options: RenameOptions,
 ): Promise<void> {
     const threadId = resolveThreadId(ref)
 
@@ -19,11 +21,16 @@ export async function renameThread(
         printDryRun('rename thread', {
             Thread: `${thread.title} (${threadId})`,
             'New title': title,
+            'Title comment': options.silent ? 'skipped (--silent)' : undefined,
         })
         return
     }
 
-    const updated = await client.threads.updateThread({ id: threadId, title })
+    const updated = await client.threads.updateThread({
+        id: threadId,
+        title,
+        silent: options.silent,
+    })
 
     if (options.json) {
         if (options.full) {

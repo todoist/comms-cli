@@ -134,6 +134,7 @@ tdc thread view <ref> --comment id:CbM8n2Kp4Qx6Rz9Lm3Va # view a specific commen
 tdc thread reply <ref>              # reply to a thread
 tdc thread reply <ref> "Update" --notify NONE # reply without notifying anyone
 tdc thread rename <ref> "New title" # rename a thread
+tdc thread rename <ref> "New title" --silent # rename without the "changed the title" comment
 tdc thread update <ref> "New body"  # edit a thread's body (first post)
 tdc thread done <ref> --yes         # archive a thread (mark done)
 tdc thread undone <ref> --yes       # move it back to your inbox
